@@ -1,6 +1,6 @@
 import { useEffect, useState, useMemo, useRef } from 'react'
 import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet'
-import { Icon, DivIcon } from 'leaflet'
+import { DivIcon } from 'leaflet'
 import { useNavigate } from 'react-router-dom'
 import 'leaflet/dist/leaflet.css'
 import { BottomNav } from '../components/layout/bottom-nav'
@@ -451,7 +451,6 @@ function NowCard({ activity: a, userPos, onClick, style }: {
 function ListCard({ activity: a, userPos, onClick }: {
   activity: Activity; userPos: [number, number] | null; onClick: () => void
 }) {
-  const navigate = useNavigate()
   const spotsLeft = a.spots_total - a.spots_taken
   const urgency = getUrgencyLabel(a.date_time)
   const catClass = getCategoryClass(a.category)
