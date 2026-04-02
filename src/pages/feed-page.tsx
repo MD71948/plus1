@@ -27,6 +27,25 @@ function MapPanner({ center }: { center: [number, number] | null }) {
   return null
 }
 
+// "Zu mir" button inside map
+function LocateButton({ userPos }: { userPos: [number, number] | null }) {
+  const map = useMap()
+  if (!userPos) return null
+  return (
+    <button
+      onClick={() => map.flyTo(userPos, 14, { duration: 0.8 })}
+      className="absolute top-3 right-3 z-[1000] w-11 h-11 bg-white rounded-2xl flex items-center justify-center transition-all hover:bg-gray-50"
+      style={{ boxShadow: '0 2px 10px rgba(0,0,0,0.15)', border: '1px solid var(--border)' }}
+      title="Mein Standort">
+      <svg className="w-5 h-5 text-violet-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+          d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+      </svg>
+    </button>
+  )
+}
+
 function makePin(color: string, selected: boolean, isNow: boolean = false) {
   const size = selected ? 40 : 32
   const radarHtml = isNow ? `
@@ -280,6 +299,7 @@ export function FeedPage({ pendingCount = 0, notifCount = 0 }: FeedPageProps) {
               attribution='© <a href="https://openstreetmap.org/">OpenStreetMap</a>'
             />
             <MapPanner center={selectedActivity ? [selectedActivity.lat, selectedActivity.lng] : null} />
+            <LocateButton userPos={userPos} />
             {filtered.map(a => {
               const isSelected = a.id === selectedActivity?.id
               const color = CAT_COLORS[a.category] ?? '#7C3AED'

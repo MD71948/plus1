@@ -6,6 +6,7 @@ import { Button } from '../components/ui/button'
 import { getCategoryClass, getUrgencyLabel } from '../lib/utils'
 import { SwipeCard } from '../components/features/swipe-card'
 import { ScoreBadge } from '../components/ui/score-badge'
+import { WeatherBadge } from '../components/features/weather-badge'
 
 interface ActivityDetailPageProps {
   userId: string
@@ -427,11 +428,16 @@ export function ActivityDetailPage({ userId }: ActivityDetailPageProps) {
                 </div>
               ))}
             </div>
+
+            {/* Weather */}
+            <WeatherBadge lat={activity.lat} lng={activity.lng} dateTime={activity.date_time} />
           </div>
 
           {/* Host */}
           {hostProfile && (
-            <div className="bg-white rounded-3xl p-4 card-shadow" style={{ border: '1px solid var(--border)' }}>
+            <button onClick={() => navigate(`/user/${activity.host_id}`)}
+              className="press w-full bg-white rounded-3xl p-4 card-shadow text-left transition-all hover:shadow-md"
+              style={{ border: '1px solid var(--border)' }}>
               <p className="text-xs font-black uppercase tracking-widest mb-3 text-gray-400">Organisiert von</p>
               <div className="flex items-center gap-3">
                 <div className="w-12 h-12 rounded-2xl overflow-hidden flex-shrink-0 border border-gray-100">
@@ -441,12 +447,13 @@ export function ActivityDetailPage({ userId }: ActivityDetailPageProps) {
                         style={{ background: 'linear-gradient(135deg, #7C3AED, #5B21B6)' }}>{hostProfile.name[0]}</div>
                   }
                 </div>
-                <div>
+                <div className="flex-1">
                   <div className="text-sm font-bold text-gray-900">{hostProfile.name}</div>
                   {hostProfile.city && <div className="text-xs text-gray-500">{hostProfile.city}</div>}
                 </div>
+                <ScoreBadge score={hostProfile.show_up_score ?? 100} count={hostProfile.ratings_count ?? 0} />
               </div>
-            </div>
+            </button>
           )}
 
           {/* Guest: Anfrage senden */}

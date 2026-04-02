@@ -1,4 +1,5 @@
 import { useRef, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { type UserProfile } from '../../types'
 import { ScoreBadge } from '../ui/score-badge'
 
@@ -13,6 +14,7 @@ interface SwipeCardProps {
 const THRESHOLD = 80 // px to trigger action
 
 export function SwipeCard({ profile, message, onAccept, onReject, loading }: SwipeCardProps) {
+  const navigate = useNavigate()
   const cardRef = useRef<HTMLDivElement>(null)
   const startX = useRef(0)
   const [dx, setDx] = useState(0)
@@ -83,9 +85,19 @@ export function SwipeCard({ profile, message, onAccept, onReject, loading }: Swi
             }
           </div>
           <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2">
-              <div className="text-sm font-black text-gray-900">{profile?.name ?? 'Unbekannt'}</div>
-              {profile && <ScoreBadge score={profile.show_up_score ?? 100} count={profile.ratings_count ?? 0} />}
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2">
+                <div className="text-sm font-black text-gray-900">{profile?.name ?? 'Unbekannt'}</div>
+                {profile && <ScoreBadge score={profile.show_up_score ?? 100} count={profile.ratings_count ?? 0} />}
+              </div>
+              {profile && (
+                <button
+                  onPointerDown={e => e.stopPropagation()}
+                  onClick={e => { e.stopPropagation(); navigate(`/user/${profile.user_id}`) }}
+                  className="text-[10px] font-bold text-violet-600 bg-violet-50 px-2 py-1 rounded-full border border-violet-100 flex-shrink-0">
+                  Profil →
+                </button>
+              )}
             </div>
             <div className="flex items-center gap-2 mt-0.5 flex-wrap">
               {profile?.city && (

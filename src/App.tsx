@@ -11,6 +11,7 @@ import { EditActivityPage } from './pages/edit-activity-page'
 import { ActivityDetailPage } from './pages/activity-detail-page'
 import { MyActivitiesPage } from './pages/my-activities-page'
 import { NotificationsPage } from './pages/notifications-page'
+import { UserProfilePage } from './pages/user-profile-page'
 import { supabase } from './lib/supabase'
 
 function AppRoutes() {
@@ -150,6 +151,7 @@ function AppRoutes() {
           ? <MyActivitiesPage userId={user.id} pendingCount={pendingCount} />
           : <Navigate to="/setup" replace />}
       />
+      <Route path="/user/:userId" element={<UserProfilePage currentUserId={user.id} />} />
       <Route path="/notifications"
         element={profile
           ? <NotificationsPage userId={user.id} onSeen={() => setNotifCount(0)} />
