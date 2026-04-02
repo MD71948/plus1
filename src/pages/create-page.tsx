@@ -29,7 +29,7 @@ export function CreatePage({ userId }: CreatePageProps) {
     date: '',
     hour: '12',
     minute: '00',
-    spots_total: '2',
+    spots_total: '3',
   })
   const [location, setLocation] = useState<SelectedLocation | null>(null)
   const [saving, setSaving] = useState(false)
@@ -191,7 +191,7 @@ export function CreatePage({ userId }: CreatePageProps) {
           <div className="flex items-center gap-5 justify-center">
             <button
               type="button"
-              onClick={() => setForm(f => ({ ...f, spots_total: String(Math.max(1, parseInt(f.spots_total) - 1)) }))}
+              onClick={() => setForm(f => ({ ...f, spots_total: String(Math.max(3, parseInt(f.spots_total) - 1)) }))}
               className="press w-12 h-12 rounded-2xl text-xl font-black text-violet-600 bg-violet-50 border border-violet-100 hover:bg-violet-100 transition-all"
             >
               −
