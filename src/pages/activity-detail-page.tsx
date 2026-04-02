@@ -519,12 +519,18 @@ export function ActivityDetailPage({ userId }: ActivityDetailPageProps) {
                 </div>
               )}
 
-              {/* Cancel activity */}
+              {/* Edit + Cancel */}
               {!isCancelled && (
-                <button onClick={cancelActivity} disabled={cancelling}
-                  className="press w-full py-3 rounded-2xl text-sm font-bold text-red-500 bg-red-50 border border-red-100 hover:bg-red-100 transition-all disabled:opacity-50">
-                  {cancelling ? 'Wird abgesagt…' : 'Aktivität absagen'}
-                </button>
+                <div className="flex gap-2">
+                  <button onClick={() => navigate(`/activity/${id}/edit`)}
+                    className="press flex-1 py-3 rounded-2xl text-sm font-bold text-violet-600 bg-violet-50 border border-violet-100 hover:bg-violet-100 transition-all">
+                    ✏️ Bearbeiten
+                  </button>
+                  <button onClick={cancelActivity} disabled={cancelling}
+                    className="press flex-1 py-3 rounded-2xl text-sm font-bold text-red-500 bg-red-50 border border-red-100 hover:bg-red-100 transition-all disabled:opacity-50">
+                    {cancelling ? 'Wird abgesagt…' : '❌ Absagen'}
+                  </button>
+                </div>
               )}
             </>
           )}

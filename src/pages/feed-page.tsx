@@ -15,6 +15,7 @@ type FeedTab = 'map' | 'now' | 'list'
 
 interface FeedPageProps {
   pendingCount?: number
+  notifCount?: number
 }
 
 // Pans map to selected activity
@@ -69,7 +70,7 @@ const CAT_COLORS: Record<string, string> = {
   'Sonstiges': '#94A3B8',
 }
 
-export function FeedPage({ pendingCount = 0 }: FeedPageProps) {
+export function FeedPage({ pendingCount = 0, notifCount = 0 }: FeedPageProps) {
   const navigate = useNavigate()
   const [activities, setActivities] = useState<Activity[]>([])
   const [tab, setTab] = useState<FeedTab>('map')
@@ -390,7 +391,7 @@ export function FeedPage({ pendingCount = 0 }: FeedPageProps) {
         </div>
       )}
 
-      <BottomNav pendingCount={pendingCount} />
+      <BottomNav pendingCount={pendingCount} notifCount={notifCount} />
     </div>
   )
 }
