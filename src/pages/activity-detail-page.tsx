@@ -1,10 +1,11 @@
 import { useEffect, useState, useRef } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
-import { type Activity, type UserProfile, type ActivityRequestWithProfile, type ChatMessageWithProfile } from '../types'
+import { type Activity, type UserProfile, type ActivityRequestWithProfile, type ChatMessageWithProfile, type ActivityRating } from '../types'
 import { Button } from '../components/ui/button'
 import { getCategoryClass, getUrgencyLabel } from '../lib/utils'
 import { SwipeCard } from '../components/features/swipe-card'
+import { ScoreBadge } from '../components/ui/score-badge'
 
 interface ActivityDetailPageProps {
   userId: string
@@ -28,6 +29,7 @@ export function ActivityDetailPage({ userId }: ActivityDetailPageProps) {
   const [chatSending, setChatSending] = useState(false)
   const [toast, setToast] = useState('')
   const [cancelling, setCancelling] = useState(false)
+  const [myRatings, setMyRatings] = useState<ActivityRating[]>([]) // ratings I've given
   const chatEndRef = useRef<HTMLDivElement>(null)
 
   const isHost = activity?.host_id === userId
@@ -116,7 +118,27 @@ export function ActivityDetailPage({ userId }: ActivityDetailPageProps) {
       }
     }
 
+    // Load ratings I've already given for this activity
+    const { data: myGivenRatings } = await supabase
+      .from('activity_ratings')
+      .select('*')
+      .eq('activity_id', id)
+      .eq('rater_id', userId)
+    setMyRatings(myGivenRatings ?? [])
+
     setLoading(false)
+  }
+
+  async function rateUser(ratedUserId: string, isPositive: boolean) {
+    if (!id) return
+    await supabase.from('activity_ratings').insert({
+      activity_id: id,
+      rater_id: userId,
+      rated_user_id: ratedUserId,
+      is_positive: isPositive,
+    })
+    setMyRatings(r => [...r, { id: '', activity_id: id!, rater_id: userId, rated_user_id: ratedUserId, is_positive: isPositive, created_at: '' }])
+    showToast(isPositive ? '👍 Bewertung gespeichert!' : '👎 Bewertung gespeichert!')
   }
 
   async function sendRequest() {
@@ -217,6 +239,16 @@ export function ActivityDetailPage({ userId }: ActivityDetailPageProps) {
   const urgency = getUrgencyLabel(activity.date_time)
   const catClass = getCategoryClass(activity.category)
   const isCancelled = activity.status === 'cancelled'
+  const isPast = new Date(activity.date_time) < new Date()
+
+  // Who can I rate? Host rates participants, participants rate host
+  const ratableUsers: { userId: string; profile: UserProfile | null }[] = isHost
+    ? acceptedRequests.map(r => ({ userId: r.user_id, profile: r.profile }))
+    : (hostProfile && myRequest?.status === 'accepted')
+      ? [{ userId: activity.host_id, profile: hostProfile }]
+      : []
+
+  const hasRated = (targetUserId: string) => myRatings.some(r => r.rated_user_id === targetUserId)
 
   return (
     <div className="min-h-screen pb-6" style={{ background: 'var(--bg)' }}>
@@ -492,6 +524,53 @@ export function ActivityDetailPage({ userId }: ActivityDetailPageProps) {
                 </button>
               )}
             </>
+          )}
+
+          {/* Post-activity ratings */}
+          {isPast && ratableUsers.length > 0 && (
+            <div className="bg-white rounded-3xl p-5 flex flex-col gap-4 card-shadow" style={{ border: '1px solid var(--border)' }}>
+              <div>
+                <h3 className="text-sm font-black text-gray-900">Wie war's? 🙌</h3>
+                <p className="text-xs text-gray-400 mt-0.5">Bewerte {isHost ? 'deine Teilnehmer' : 'den Host'}</p>
+              </div>
+              {ratableUsers.map(({ userId: uid, profile }) => {
+                const rated = hasRated(uid)
+                const myRating = myRatings.find(r => r.rated_user_id === uid)
+                return (
+                  <div key={uid} className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-2xl overflow-hidden flex-shrink-0 border border-gray-100">
+                      {profile?.avatar_url
+                        ? <img src={profile.avatar_url} alt="" className="w-full h-full object-cover" />
+                        : <div className="w-full h-full flex items-center justify-center text-sm font-black text-white"
+                            style={{ background: 'linear-gradient(135deg, #7C3AED, #5B21B6)' }}>
+                            {profile?.name?.[0] ?? '?'}
+                          </div>
+                      }
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="text-sm font-bold text-gray-900">{profile?.name ?? 'Unbekannt'}</div>
+                      {profile && <ScoreBadge score={profile.show_up_score ?? 100} count={profile.ratings_count ?? 0} />}
+                    </div>
+                    {rated ? (
+                      <span className={`text-sm font-black ${myRating?.is_positive ? 'text-emerald-600' : 'text-red-500'}`}>
+                        {myRating?.is_positive ? '👍' : '👎'}
+                      </span>
+                    ) : (
+                      <div className="flex gap-2">
+                        <button onClick={() => rateUser(uid, false)}
+                          className="press w-10 h-10 rounded-2xl text-lg bg-red-50 border border-red-100 hover:bg-red-100 transition-all">
+                          👎
+                        </button>
+                        <button onClick={() => rateUser(uid, true)}
+                          className="press w-10 h-10 rounded-2xl text-lg bg-emerald-50 border border-emerald-100 hover:bg-emerald-100 transition-all">
+                          👍
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                )
+              })}
+            </div>
           )}
         </div>
       )}

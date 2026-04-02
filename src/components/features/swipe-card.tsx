@@ -1,5 +1,6 @@
 import { useRef, useState } from 'react'
 import { type UserProfile } from '../../types'
+import { ScoreBadge } from '../ui/score-badge'
 
 interface SwipeCardProps {
   profile: UserProfile | null
@@ -82,7 +83,10 @@ export function SwipeCard({ profile, message, onAccept, onReject, loading }: Swi
             }
           </div>
           <div className="flex-1 min-w-0">
-            <div className="text-sm font-black text-gray-900">{profile?.name ?? 'Unbekannt'}</div>
+            <div className="flex items-center gap-2">
+              <div className="text-sm font-black text-gray-900">{profile?.name ?? 'Unbekannt'}</div>
+              {profile && <ScoreBadge score={profile.show_up_score ?? 100} count={profile.ratings_count ?? 0} />}
+            </div>
             <div className="flex items-center gap-2 mt-0.5 flex-wrap">
               {profile?.city && (
                 <span className="text-xs text-gray-400 flex items-center gap-1">

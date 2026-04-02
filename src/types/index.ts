@@ -46,8 +46,19 @@ export interface UserProfile {
   lat: number | null
   lng: number | null
   activities_count: number
+  show_up_score: number
+  ratings_count: number
   created_at: string
   updated_at: string
+}
+
+export interface ActivityRating {
+  id: string
+  activity_id: string
+  rater_id: string
+  rated_user_id: string
+  is_positive: boolean
+  created_at: string
 }
 
 export interface ChatMessage {

@@ -1,6 +1,7 @@
 import { useNavigate } from 'react-router-dom'
 import { type UserProfile } from '../types'
 import { BottomNav } from '../components/layout/bottom-nav'
+import { ScoreBadge } from '../components/ui/score-badge'
 
 interface ProfilePageProps {
   profile: UserProfile
@@ -55,10 +56,13 @@ export function ProfilePage({ profile, onSignOut }: ProfilePageProps) {
 
         {/* Name + bio */}
         <div className="mb-4">
-          <h1 className="text-2xl font-black text-gray-900 mb-0.5">
-            {profile.name}
-            {profile.age && <span className="text-gray-400 font-normal text-lg ml-2">{profile.age}</span>}
-          </h1>
+          <div className="flex items-center gap-3 mb-0.5">
+            <h1 className="text-2xl font-black text-gray-900">
+              {profile.name}
+              {profile.age && <span className="text-gray-400 font-normal text-lg ml-2">{profile.age}</span>}
+            </h1>
+            <ScoreBadge score={profile.show_up_score ?? 100} count={profile.ratings_count ?? 0} size="md" />
+          </div>
           {(profile.city || profile.district) && (
             <div className="flex items-center gap-1.5 text-sm mb-2 text-gray-500">
               <svg className="w-3.5 h-3.5 text-violet-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
