@@ -1,0 +1,103 @@
+@import "tailwindcss";
+
+/* Design Tokens — Light Theme */
+:root {
+  --bg: #F4F4F6;
+  --surface: #FFFFFF;
+  --surface-2: #F9F9FB;
+  --border: #E8E8ED;
+  --border-hover: #D1D1DB;
+  --accent: #7C3AED;
+  --accent-light: #EDE9FE;
+  --accent-2: #9F67FF;
+  --text: #0A0A0B;
+  --text-2: #6B7280;
+  --text-3: #9CA3AF;
+  --danger: #EF4444;
+  --success: #22C55E;
+  --warning: #F59E0B;
+}
+
+*, *::before, *::after {
+  box-sizing: border-box;
+  -webkit-tap-highlight-color: transparent;
+}
+
+html {
+  background: var(--bg);
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  overscroll-behavior: none;
+}
+
+#root {
+  min-height: 100svh;
+  background: var(--bg);
+}
+
+::-webkit-scrollbar { width: 0; }
+
+/* Card shadow */
+.card-shadow {
+  box-shadow: 0 1px 3px rgba(0,0,0,0.08), 0 1px 2px rgba(0,0,0,0.04);
+}
+
+.card-shadow-md {
+  box-shadow: 0 4px 12px rgba(0,0,0,0.08), 0 2px 4px rgba(0,0,0,0.04);
+}
+
+/* Animations */
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+@keyframes pulse-glow {
+  0%, 100% { box-shadow: 0 0 20px rgba(124,58,237,0.4); }
+  50%       { box-shadow: 0 0 40px rgba(124,58,237,0.7); }
+}
+
+.animate-fade-up {
+  animation: fadeUp 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.25s ease forwards;
+}
+
+.animate-pulse-glow {
+  animation: pulse-glow 2s ease-in-out infinite;
+}
+
+.delay-100 { animation-delay: 0.1s; opacity: 0; }
+.delay-200 { animation-delay: 0.2s; opacity: 0; }
+.delay-300 { animation-delay: 0.3s; opacity: 0; }
+
+/* Press effect */
+.press:active {
+  transform: scale(0.97);
+  transition: transform 0.1s;
+}
+
+/* Category pill colors — solid tinted badges */
+.cat-sport    { background: #FEE2E2; color: #DC2626; border-color: #FECACA; }
+.cat-outdoor  { background: #DCFCE7; color: #16A34A; border-color: #BBF7D0; }
+.cat-food     { background: #FFEDD5; color: #EA580C; border-color: #FED7AA; }
+.cat-culture  { background: #EDE9FE; color: #7C3AED; border-color: #DDD6FE; }
+.cat-music    { background: #FCE7F3; color: #DB2777; border-color: #FBCFE8; }
+.cat-gaming   { background: #DBEAFE; color: #1D4ED8; border-color: #BFDBFE; }
+.cat-travel   { background: #CCFBF1; color: #0F766E; border-color: #99F6E4; }
+.cat-learn    { background: #FEF9C3; color: #A16207; border-color: #FEF08A; }
+.cat-other    { background: #F1F5F9; color: #475569; border-color: #E2E8F0; }
