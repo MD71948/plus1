@@ -99,7 +99,6 @@ export function ActivityDetailPage({ userId }: ActivityDetailPageProps) {
     }
 
     // Load chat messages
-    const isParticipant = act.host_id === userId || false // will check mine below
     const myReqCheck = await supabase
       .from('activity_requests').select('status').eq('activity_id', id).eq('user_id', userId).single()
     const canLoadChat = act.host_id === userId || myReqCheck.data?.status === 'accepted'
@@ -218,8 +217,6 @@ export function ActivityDetailPage({ userId }: ActivityDetailPageProps) {
   const catClass = getCategoryClass(activity.category)
   const isCancelled = activity.status === 'cancelled'
 
-  const unreadCount = messages.length // simplification
-
   return (
     <div className="min-h-screen pb-6" style={{ background: 'var(--bg)' }}>
 
@@ -266,9 +263,9 @@ export function ActivityDetailPage({ userId }: ActivityDetailPageProps) {
                   : { background: 'white', color: 'var(--text-3)', borderColor: 'var(--border)' }
                 }>
                 {t.label}
-                {t.badge > 0 && tab !== t.key && (
+                {(t.badge ?? 0) > 0 && tab !== t.key && (
                   <span className="w-4 h-4 rounded-full bg-violet-600 text-white text-[10px] font-black flex items-center justify-center">
-                    {t.badge > 9 ? '9+' : t.badge}
+                    {(t.badge ?? 0) > 9 ? '9+' : t.badge}
                   </span>
                 )}
               </button>
