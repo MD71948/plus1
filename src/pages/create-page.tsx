@@ -149,8 +149,50 @@ export function CreatePage({ userId }: CreatePageProps) {
         {/* Datum & Uhrzeit */}
         <div className="bg-white rounded-3xl p-4 card-shadow" style={{ border: '1px solid var(--border)' }}>
           <p className="text-xs font-black uppercase tracking-widest mb-3 text-gray-400">
-            Datum & Uhrzeit <span className="text-violet-500">*</span>
+            Wann? <span className="text-violet-500">*</span>
           </p>
+
+          {/* Quick time buttons */}
+          <div className="grid grid-cols-2 gap-2 mb-3">
+            {[
+              { label: '⚡ In 1 Stunde', hours: 1 },
+              { label: '🕐 In 2 Stunden', hours: 2 },
+              { label: '🌆 Heute Abend', hours: null, time: '19:00' },
+              { label: '☀️ Morgen', hours: null, tomorrow: true },
+            ].map(preset => {
+              const getPresetValues = () => {
+                const now = new Date()
+                if (preset.hours !== undefined && preset.hours !== null) {
+                  const t = new Date(now.getTime() + preset.hours * 3600000)
+                  return {
+                    date: t.toISOString().split('T')[0],
+                    hour: String(t.getHours()).padStart(2, '0'),
+                    minute: t.getMinutes() < 30 ? '00' : '30',
+                  }
+                }
+                if (preset.tomorrow) {
+                  const t = new Date(now)
+                  t.setDate(t.getDate() + 1)
+                  return { date: t.toISOString().split('T')[0], hour: '12', minute: '00' }
+                }
+                return { date: now.toISOString().split('T')[0], hour: '19', minute: '00' }
+              }
+              const vals = getPresetValues()
+              const isActive = form.date === vals.date && form.hour === vals.hour
+              return (
+                <button key={preset.label} type="button"
+                  onClick={() => setForm(f => ({ ...f, ...vals }))}
+                  className="py-2.5 px-3 rounded-2xl text-xs font-bold border transition-all text-left"
+                  style={isActive
+                    ? { background: '#EDE9FE', borderColor: '#DDD6FE', color: '#7C3AED' }
+                    : { background: '#F9F9FB', borderColor: '#E8E8ED', color: '#6B7280' }}>
+                  {preset.label}
+                </button>
+              )
+            })}
+          </div>
+
+          {/* Custom date/time */}
           <div className="grid grid-cols-3 gap-2">
             <div className="col-span-3 sm:col-span-1">
               <input

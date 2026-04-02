@@ -4,6 +4,7 @@ import { supabase } from '../lib/supabase'
 import { type Activity, type UserProfile, type ActivityRequestWithProfile, type ChatMessageWithProfile } from '../types'
 import { Button } from '../components/ui/button'
 import { getCategoryClass, getUrgencyLabel } from '../lib/utils'
+import { SwipeCard } from '../components/features/swipe-card'
 
 interface ActivityDetailPageProps {
   userId: string
@@ -451,17 +452,19 @@ export function ActivityDetailPage({ userId }: ActivityDetailPageProps) {
           {isHost && (
             <>
               {pendingRequests.length > 0 && (
-                <div className="bg-white rounded-3xl p-4 flex flex-col gap-4 card-shadow" style={{ border: '1px solid #DDD6FE' }}>
-                  <div className="flex items-center justify-between">
+                <div className="flex flex-col gap-3">
+                  <div className="flex items-center justify-between px-1">
                     <h3 className="text-sm font-black text-gray-900">Neue Anfragen</h3>
                     <span className="w-6 h-6 rounded-full text-white text-xs font-black flex items-center justify-center bg-violet-600">{pendingRequests.length}</span>
                   </div>
-                  <div className="flex flex-col gap-3">
-                    {pendingRequests.map(req => (
-                      <RequestRow key={req.id} req={req} loading={actionId === req.id}
-                        onAccept={() => acceptRequest(req.id)} onReject={() => rejectRequest(req.id)} />
-                    ))}
-                  </div>
+                  {pendingRequests.map(req => (
+                    <SwipeCard key={req.id}
+                      profile={req.profile}
+                      message={req.message}
+                      loading={actionId === req.id}
+                      onAccept={() => acceptRequest(req.id)}
+                      onReject={() => rejectRequest(req.id)} />
+                  ))}
                 </div>
               )}
               {acceptedRequests.length > 0 && (
