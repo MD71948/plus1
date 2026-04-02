@@ -12,6 +12,7 @@ export interface Activity {
   spots_total: number
   spots_taken: number
   status: 'open' | 'full' | 'cancelled'
+  vibe: 'Chill' | 'Kompetitiv' | 'Abenteuer' | 'Kultur' | 'Party' | null
   created_at: string
   updated_at: string
 }

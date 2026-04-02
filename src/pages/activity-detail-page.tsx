@@ -209,9 +209,12 @@ export function ActivityDetailPage({ userId }: ActivityDetailPageProps) {
 
   function shareActivity() {
     const url = window.location.href
+    const text = `${activity?.title} – Komm dazu! ${url}`
     if (navigator.share) {
-      navigator.share({ title: activity?.title, url })
+      navigator.share({ title: activity?.title, text, url })
     } else {
+      const waUrl = `https://wa.me/?text=${encodeURIComponent(text)}`
+      window.open(waUrl, '_blank')
       navigator.clipboard.writeText(url)
       showToast('Link kopiert!')
     }

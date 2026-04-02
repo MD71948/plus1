@@ -85,6 +85,15 @@ body {
 .delay-200 { animation-delay: 0.2s; opacity: 0; }
 .delay-300 { animation-delay: 0.3s; opacity: 0; }
 
+/* Live radar pulse for map pins */
+@keyframes radar-pulse {
+  0%   { transform: scale(1); opacity: 0.8; }
+  100% { transform: scale(3); opacity: 0; }
+}
+.radar-ring {
+  animation: radar-pulse 1.5s ease-out infinite;
+}
+
 /* Press effect */
 .press:active {
   transform: scale(0.97);

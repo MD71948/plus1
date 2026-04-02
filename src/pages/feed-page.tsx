@@ -7,7 +7,7 @@ import { BottomNav } from '../components/layout/bottom-nav'
 import { type Activity } from '../types'
 import { supabase } from '../lib/supabase'
 import { getCategoryClass, getUrgencyLabel, haversineKm, formatDistance, isWithinHours } from '../lib/utils'
-import { ACTIVITY_CATEGORIES } from '../lib/constants'
+import { ACTIVITY_CATEGORIES, VIBES } from '../lib/constants'
 
 const DEFAULT_CENTER: [number, number] = [52.52, 13.405]
 
@@ -26,21 +26,34 @@ function MapPanner({ center }: { center: [number, number] | null }) {
   return null
 }
 
-function makePin(color: string, selected: boolean) {
+function makePin(color: string, selected: boolean, isNow: boolean = false) {
+  const size = selected ? 40 : 32
+  const radarHtml = isNow ? `
+    <div class="radar-ring" style="
+      position:absolute;
+      inset:-10px;
+      border-radius:50%;
+      background:${color}22;
+      border:2px solid ${color}88;
+      pointer-events:none;
+    "></div>` : ''
   return new DivIcon({
-    html: `<div style="
-      width:${selected ? 40 : 32}px;
-      height:${selected ? 40 : 32}px;
-      background:${color};
-      border-radius:50% 50% 50% 0;
-      transform:rotate(-45deg);
-      border:3px solid white;
-      box-shadow:0 2px 8px rgba(0,0,0,0.25);
-      transition:all 0.2s;
-    "></div>`,
+    html: `<div style="position:relative;width:${size}px;height:${size}px;">
+      ${radarHtml}
+      <div style="
+        width:${size}px;
+        height:${size}px;
+        background:${color};
+        border-radius:50% 50% 50% 0;
+        transform:rotate(-45deg);
+        border:3px solid white;
+        box-shadow:0 2px 8px rgba(0,0,0,0.25);
+        transition:all 0.2s;
+      "></div>
+    </div>`,
     className: '',
-    iconSize: [selected ? 40 : 32, selected ? 40 : 32],
-    iconAnchor: [selected ? 20 : 16, selected ? 40 : 32],
+    iconSize: [size, size],
+    iconAnchor: [size / 2, size],
   })
 }
 
@@ -64,6 +77,7 @@ export function FeedPage({ pendingCount = 0 }: FeedPageProps) {
   const [search, setSearch] = useState('')
   const [showSearch, setShowSearch] = useState(false)
   const [categoryFilter, setCategoryFilter] = useState('')
+  const [vibeFilter, setVibeFilter] = useState('')
   const [distanceKm, setDistanceKm] = useState(50)
   const [showFilters, setShowFilters] = useState(false)
   const [selectedActivity, setSelectedActivity] = useState<Activity | null>(null)
@@ -97,13 +111,14 @@ export function FeedPage({ pendingCount = 0 }: FeedPageProps) {
       )
     }
     if (categoryFilter) list = list.filter(a => a.category === categoryFilter)
+    if (vibeFilter) list = list.filter(a => a.vibe === vibeFilter)
 
     if (userPos && distanceKm < 50) {
       list = list.filter(a => haversineKm(userPos[0], userPos[1], a.lat, a.lng) <= distanceKm)
     }
 
     return list
-  }, [activities, search, categoryFilter, distanceKm, userPos])
+  }, [activities, search, categoryFilter, vibeFilter, distanceKm, userPos])
 
   const nowActivities = useMemo(() =>
     activities.filter(a => isWithinHours(a.date_time, 2) && a.status !== 'cancelled'),
@@ -216,6 +231,26 @@ export function FeedPage({ pendingCount = 0 }: FeedPageProps) {
               ))}
             </div>
 
+            {/* Vibe chips */}
+            <div className="flex gap-2 overflow-x-auto pb-0.5" style={{ scrollbarWidth: 'none' }}>
+              <button onClick={() => setVibeFilter('')}
+                className="flex-shrink-0 px-3 py-1 rounded-full text-xs font-bold border transition-all"
+                style={vibeFilter === ''
+                  ? { background: '#0A0A0B', color: 'white', borderColor: '#0A0A0B' }
+                  : { background: 'white', color: 'var(--text-3)', borderColor: 'var(--border)' }}>
+                Alle Vibes
+              </button>
+              {VIBES.map(v => (
+                <button key={v.label} onClick={() => setVibeFilter(vibeFilter === v.label ? '' : v.label)}
+                  className="flex-shrink-0 flex items-center gap-1 px-3 py-1 rounded-full text-xs font-bold border transition-all"
+                  style={vibeFilter === v.label
+                    ? { background: v.bg, color: v.color, borderColor: v.border }
+                    : { background: 'white', color: 'var(--text-3)', borderColor: 'var(--border)' }}>
+                  {v.emoji} {v.label}
+                </button>
+              ))}
+            </div>
+
             {/* Distance slider */}
             {userPos && (
               <div className="flex items-center gap-3">
@@ -247,9 +282,10 @@ export function FeedPage({ pendingCount = 0 }: FeedPageProps) {
             {filtered.map(a => {
               const isSelected = a.id === selectedActivity?.id
               const color = CAT_COLORS[a.category] ?? '#7C3AED'
+              const isNow = isWithinHours(a.date_time, 2)
               return (
                 <Marker key={a.id} position={[a.lat, a.lng]}
-                  icon={makePin(color, isSelected)}
+                  icon={makePin(color, isSelected, isNow)}
                   eventHandlers={{ click: () => scrollToActivity(a) }}>
                   <Popup>
                     <div className="text-sm font-sans">
@@ -369,6 +405,7 @@ function MapCard({ activity: a, userPos, selected, onClick }: {
   const dist = userPos ? haversineKm(userPos[0], userPos[1], a.lat, a.lng) : null
   const catClass = getCategoryClass(a.category)
   const urgency = getUrgencyLabel(a.date_time)
+  const vibeInfo = VIBES.find(v => v.label === a.vibe)
 
   return (
     <div onClick={onClick}
@@ -380,7 +417,15 @@ function MapCard({ activity: a, userPos, selected, onClick }: {
         boxShadow: selected ? '0 4px 20px rgba(124,58,237,0.2)' : '0 2px 8px rgba(0,0,0,0.08)',
       }}>
       <div className="flex items-center justify-between mb-2">
-        <span className={`${catClass} text-xs font-bold px-2.5 py-1 rounded-full border`}>{a.category}</span>
+        <div className="flex items-center gap-1.5">
+          <span className={`${catClass} text-xs font-bold px-2.5 py-1 rounded-full border`}>{a.category}</span>
+          {vibeInfo && (
+            <span className="text-xs font-bold px-2 py-0.5 rounded-full border"
+              style={{ background: vibeInfo.bg, color: vibeInfo.color, borderColor: vibeInfo.border }}>
+              {vibeInfo.emoji} {vibeInfo.label}
+            </span>
+          )}
+        </div>
         <div className="flex items-center gap-1.5">
           {urgency && <span className="text-xs font-black text-amber-600 bg-amber-50 px-2 py-0.5 rounded-full border border-amber-200">{urgency}</span>}
           <span className={`text-xs font-bold px-2.5 py-1 rounded-full border ${spotsLeft > 0 ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-gray-100 text-gray-400 border-gray-200'}`}>
@@ -460,13 +505,22 @@ function ListCard({ activity: a, userPos, onClick }: {
   const dist = userPos ? haversineKm(userPos[0], userPos[1], a.lat, a.lng) : null
   const colors = ['#7C3AED', '#EC4899', '#06B6D4', '#F59E0B']
   const takenCount = Math.min(a.spots_taken, 4)
+  const vibeInfo = VIBES.find(v => v.label === a.vibe)
 
   return (
     <div onClick={onClick}
       className="press rounded-3xl p-5 flex flex-col gap-3 cursor-pointer bg-white card-shadow transition-all hover:shadow-md"
       style={{ border: '1px solid var(--border)' }}>
       <div className="flex items-center justify-between">
-        <span className={`${catClass} text-xs font-bold px-3 py-1 rounded-full border`}>{a.category}</span>
+        <div className="flex items-center gap-1.5">
+          <span className={`${catClass} text-xs font-bold px-3 py-1 rounded-full border`}>{a.category}</span>
+          {vibeInfo && (
+            <span className="text-xs font-bold px-2 py-0.5 rounded-full border"
+              style={{ background: vibeInfo.bg, color: vibeInfo.color, borderColor: vibeInfo.border }}>
+              {vibeInfo.emoji} {vibeInfo.label}
+            </span>
+          )}
+        </div>
         <span className={`text-xs font-bold px-3 py-1 rounded-full border ${spotsLeft > 0 ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-gray-100 text-gray-400 border-gray-200'}`}>
           {spotsLeft > 0 ? `${spotsLeft} frei` : 'Voll'}
         </span>

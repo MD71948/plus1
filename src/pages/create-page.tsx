@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
-import { ACTIVITY_CATEGORIES } from '../lib/constants'
+import { ACTIVITY_CATEGORIES, VIBES } from '../lib/constants'
 import { Button } from '../components/ui/button'
 import { Input } from '../components/ui/input'
 import { Textarea } from '../components/ui/textarea'
@@ -26,6 +26,7 @@ export function CreatePage({ userId }: CreatePageProps) {
     title: '',
     description: '',
     category: '',
+    vibe: '',
     date: '',
     hour: '12',
     minute: '00',
@@ -55,6 +56,7 @@ export function CreatePage({ userId }: CreatePageProps) {
         title: form.title.trim(),
         description: form.description.trim() || null,
         category: form.category,
+        vibe: form.vibe || null,
         location_name: location.name,
         address: location.address,
         lat: location.lat,
@@ -114,6 +116,28 @@ export function CreatePage({ userId }: CreatePageProps) {
               >
                 <span className="text-xl">{cat.emoji}</span>
                 {cat.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Vibe */}
+        <div className="bg-white rounded-3xl p-4 card-shadow" style={{ border: '1px solid var(--border)' }}>
+          <p className="text-xs font-black uppercase tracking-widest mb-3 text-gray-400">Vibe (optional)</p>
+          <div className="flex gap-2 flex-wrap">
+            {VIBES.map(v => (
+              <button
+                key={v.label}
+                type="button"
+                onClick={() => setForm(f => ({ ...f, vibe: f.vibe === v.label ? '' : v.label }))}
+                className="flex items-center gap-1.5 px-3 py-2 rounded-2xl text-xs font-bold border transition-all duration-200"
+                style={form.vibe === v.label
+                  ? { background: v.bg, borderColor: v.border, color: v.color }
+                  : { background: '#F9F9FB', borderColor: '#E8E8ED', color: '#9CA3AF' }
+                }
+              >
+                <span>{v.emoji}</span>
+                {v.label}
               </button>
             ))}
           </div>
