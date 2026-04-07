@@ -1,5 +1,5 @@
 import { useEffect, useState, useMemo, useRef } from 'react'
-import { MapContainer, TileLayer, Marker, Popup, Circle, useMap } from 'react-leaflet'
+import { MapContainer, TileLayer, Marker, Popup, Circle, CircleMarker, useMap } from 'react-leaflet'
 import { DivIcon } from 'leaflet'
 import { useNavigate } from 'react-router-dom'
 import 'leaflet/dist/leaflet.css'
@@ -43,6 +43,18 @@ function MapPanner({ center }: { center: [number, number] | null }) {
   useEffect(() => {
     if (center) map.flyTo(center, 15, { duration: 0.6 })
   }, [center?.toString()])
+  return null
+}
+
+// Zooms map to fit the radius circle when distanceKm changes
+function MapFitter({ center, radiusKm }: { center: [number, number] | null; radiusKm: number }) {
+  const map = useMap()
+  useEffect(() => {
+    if (!center || radiusKm >= 50) return
+    const lat = radiusKm / 111 * 1.4
+    const lng = radiusKm / (111 * Math.cos(center[0] * Math.PI / 180)) * 1.4
+    map.fitBounds([[center[0] - lat, center[1] - lng], [center[0] + lat, center[1] + lng]])
+  }, [radiusKm, center?.toString()])
   return null
 }
 
@@ -355,20 +367,30 @@ export function FeedPage({ userId, pendingCount = 0, notifCount = 0, userInteres
               attribution='© <a href="https://openstreetmap.org/">OpenStreetMap</a>'
             />
             <MapPanner center={selectedActivity ? [selectedActivity.lat, selectedActivity.lng] : null} />
+            <MapFitter center={userPos} radiusKm={distanceKm} />
             <LocateButton userPos={userPos} />
             {userPos && distanceKm < 50 && (
-              <Circle
-                center={userPos}
-                radius={distanceKm * 1000}
-                pathOptions={{
-                  color: '#7C3AED',
-                  fillColor: '#7C3AED',
-                  fillOpacity: 0.06,
-                  weight: 2,
-                  opacity: 0.4,
-                  dashArray: '6 4',
-                }}
-              />
+              <>
+                {/* Radius circle */}
+                <Circle
+                  center={userPos}
+                  radius={distanceKm * 1000}
+                  pathOptions={{
+                    color: '#7C3AED',
+                    fillColor: '#7C3AED',
+                    fillOpacity: 0.08,
+                    weight: 2.5,
+                    opacity: 0.7,
+                    dashArray: '8 5',
+                  }}
+                />
+                {/* User position dot */}
+                <CircleMarker
+                  center={userPos}
+                  radius={8}
+                  pathOptions={{ color: 'white', fillColor: '#7C3AED', fillOpacity: 1, weight: 3 }}
+                />
+              </>
             )}
             {filtered.map(a => {
               const isSelected = a.id === selectedActivity?.id
@@ -390,19 +412,27 @@ export function FeedPage({ userId, pendingCount = 0, notifCount = 0, userInteres
           </MapContainer>
 
           {/* Radius quick-filter overlay — top left */}
-          <div className="absolute top-3 left-3 z-[1000] flex gap-1 p-1 rounded-2xl"
-            style={{ background: 'rgba(255,255,255,0.92)', backdropFilter: 'blur(12px)', boxShadow: '0 2px 10px rgba(0,0,0,0.12)', border: '1px solid var(--border)' }}>
-            {([50, 5, 10, 20] as const).map(km => {
-              const label = km === 50 ? 'Alle' : `${km} km`
-              const active = distanceKm === km
-              return (
-                <button key={km} onClick={() => setDistanceKm(km)}
-                  className="px-2.5 py-1.5 rounded-xl text-xs font-black transition-all"
-                  style={active ? { background: '#7C3AED', color: 'white' } : { color: '#6B7280' }}>
-                  {label}
-                </button>
-              )
-            })}
+          <div className="absolute top-3 left-3 z-[1000] flex flex-col gap-1.5">
+            <div className="flex gap-1 p-1 rounded-2xl"
+              style={{ background: 'rgba(255,255,255,0.95)', backdropFilter: 'blur(12px)', boxShadow: '0 2px 10px rgba(0,0,0,0.15)', border: '1px solid var(--border)' }}>
+              {([50, 5, 10, 20] as const).map(km => {
+                const label = km === 50 ? 'Alle' : `${km} km`
+                const active = distanceKm === km
+                return (
+                  <button key={km} onClick={() => setDistanceKm(km)}
+                    className="px-2.5 py-1.5 rounded-xl text-xs font-black transition-all"
+                    style={active ? { background: '#7C3AED', color: 'white' } : { color: '#6B7280' }}>
+                    {label}
+                  </button>
+                )
+              })}
+            </div>
+            {!userPos && distanceKm < 50 && (
+              <div className="text-[10px] font-semibold text-white px-2 py-1 rounded-xl text-center"
+                style={{ background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(8px)' }}>
+                📍 Standort freigeben für Radius
+              </div>
+            )}
           </div>
 
           {/* Bottom card strip */}
