@@ -4,6 +4,7 @@ import { supabase } from '../lib/supabase'
 import { type Activity, type UserProfile, type ActivityRequestWithProfile, type ChatMessageWithProfile, type ActivityRating } from '../types'
 import { Button } from '../components/ui/button'
 import { getCategoryClass, getUrgencyLabel } from '../lib/utils'
+import { ACTIVITY_CATEGORIES } from '../lib/constants'
 import { SwipeCard } from '../components/features/swipe-card'
 import { ScoreBadge } from '../components/ui/score-badge'
 import { WeatherBadge } from '../components/features/weather-badge'
@@ -31,6 +32,7 @@ export function ActivityDetailPage({ userId }: ActivityDetailPageProps) {
   const [toast, setToast] = useState('')
   const [cancelling, setCancelling] = useState(false)
   const [myRatings, setMyRatings] = useState<ActivityRating[]>([]) // ratings I've given
+  const [similarActivities, setSimilarActivities] = useState<Activity[]>([])
   const chatEndRef = useRef<HTMLDivElement>(null)
 
   const isHost = activity?.host_id === userId
@@ -126,6 +128,17 @@ export function ActivityDetailPage({ userId }: ActivityDetailPageProps) {
       .eq('activity_id', id)
       .eq('rater_id', userId)
     setMyRatings(myGivenRatings ?? [])
+
+    // Load similar activities (same category, different id, not cancelled)
+    const { data: similar } = await supabase
+      .from('activities')
+      .select('*')
+      .eq('category', act.category)
+      .neq('id', id)
+      .neq('status', 'cancelled')
+      .order('date_time', { ascending: true })
+      .limit(4)
+    setSimilarActivities(similar ?? [])
 
     setLoading(false)
   }
@@ -588,6 +601,24 @@ export function ActivityDetailPage({ userId }: ActivityDetailPageProps) {
               })}
             </div>
           )}
+
+          {/* Recap Card — shown after activity ended */}
+          {isPast && !isCancelled && (isHost || myRequest?.status === 'accepted') && (
+            <RecapCard activity={activity} onShare={shareActivity} />
+          )}
+
+          {/* Similar Activities */}
+          {similarActivities.length > 0 && (
+            <div className="flex flex-col gap-3">
+              <h3 className="text-sm font-black text-gray-900 px-1">Ähnliche Aktivitäten</h3>
+              <div className="flex gap-3 overflow-x-auto pb-1" style={{ scrollbarWidth: 'none' }}>
+                {similarActivities.map(a => (
+                  <SimilarCard key={a.id} activity={a} onClick={() => navigate(`/activity/${a.id}`)} />
+                ))}
+                <div className="flex-shrink-0 w-1" />
+              </div>
+            </div>
+          )}
         </div>
       )}
     </div>
@@ -636,6 +667,76 @@ function ParticipantRow({ req, loading, onRemove }: {
         className="text-xs font-semibold text-gray-400 hover:text-red-500 transition-colors">
         Entfernen
       </button>
+    </div>
+  )
+}
+
+// ── RECAP CARD ──
+function RecapCard({ activity: a, onShare }: { activity: Activity; onShare: () => void }) {
+  const catInfo = ACTIVITY_CATEGORIES.find(c => c.label === a.category)
+  const dateStr = new Date(a.date_time).toLocaleDateString('de-DE', { weekday: 'long', day: 'numeric', month: 'long' })
+  const timeStr = new Date(a.date_time).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })
+
+  return (
+    <div className="rounded-3xl overflow-hidden card-shadow" style={{ border: '1px solid var(--border)' }}>
+      {/* Gradient header */}
+      <div className="px-5 pt-5 pb-4 text-white relative overflow-hidden"
+        style={{ background: 'linear-gradient(135deg, #5B21B6 0%, #7C3AED 60%, #9F67FF 100%)' }}>
+        <div className="absolute top-0 right-0 w-32 h-32 rounded-full opacity-20"
+          style={{ background: 'radial-gradient(circle, white 0%, transparent 70%)', transform: 'translate(30%, -30%)' }} />
+        <div className="text-3xl mb-2">{catInfo?.emoji ?? '🎉'}</div>
+        <h3 className="text-base font-black leading-tight">{a.title}</h3>
+        <p className="text-white/70 text-xs mt-1">{dateStr} · {timeStr} Uhr</p>
+      </div>
+      {/* Stats */}
+      <div className="bg-white px-5 py-4 flex items-center justify-between">
+        <div className="flex items-center gap-4">
+          <div className="text-center">
+            <div className="text-xl font-black text-gray-900">{a.spots_taken}</div>
+            <div className="text-xs font-semibold text-gray-400">Dabei</div>
+          </div>
+          <div className="w-px h-8 bg-gray-100" />
+          <div className="text-center">
+            <div className="text-xl font-black text-gray-900">{a.spots_total}</div>
+            <div className="text-xs font-semibold text-gray-400">Plätze</div>
+          </div>
+          <div className="w-px h-8 bg-gray-100" />
+          <div className="text-sm font-semibold text-gray-500 truncate max-w-[100px]">{a.location_name}</div>
+        </div>
+        <button onClick={onShare}
+          className="press flex items-center gap-1.5 px-4 py-2 rounded-2xl text-sm font-bold text-white"
+          style={{ background: 'linear-gradient(135deg, #7C3AED, #5B21B6)', boxShadow: '0 2px 10px rgba(124,58,237,0.3)' }}>
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
+          </svg>
+          Teilen
+        </button>
+      </div>
+    </div>
+  )
+}
+
+// ── SIMILAR ACTIVITY CARD ──
+function SimilarCard({ activity: a, onClick }: { activity: Activity; onClick: () => void }) {
+  const spotsLeft = a.spots_total - a.spots_taken
+  const isToday = new Date(a.date_time).toDateString() === new Date().toDateString()
+  const dateStr = isToday ? 'Heute' : new Date(a.date_time).toLocaleDateString('de-DE', { day: 'numeric', month: 'short' })
+  const timeStr = new Date(a.date_time).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })
+
+  return (
+    <div onClick={onClick}
+      className="press flex-shrink-0 bg-white rounded-2xl p-4 cursor-pointer card-shadow flex flex-col gap-2"
+      style={{ width: '200px', border: '1px solid var(--border)' }}>
+      <div className="flex items-center justify-between">
+        <span className="text-xs font-bold text-violet-600 bg-violet-50 px-2 py-0.5 rounded-full">{a.category}</span>
+        <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${spotsLeft > 0 ? 'text-emerald-700 bg-emerald-50' : 'text-gray-400 bg-gray-100'}`}>
+          {spotsLeft > 0 ? `${spotsLeft} frei` : 'Voll'}
+        </span>
+      </div>
+      <p className="text-sm font-bold text-gray-900 leading-snug line-clamp-2">{a.title}</p>
+      <div className="text-xs font-semibold text-gray-400">
+        <span className={isToday ? 'text-violet-600 font-bold' : ''}>{dateStr}</span> · {timeStr}
+      </div>
     </div>
   )
 }

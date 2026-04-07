@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { ACTIVITY_CATEGORIES, VIBES } from '../lib/constants'
@@ -35,8 +35,35 @@ export function CreatePage({ userId }: CreatePageProps) {
   const [location, setLocation] = useState<SelectedLocation | null>(null)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
+  const [weatherWarning, setWeatherWarning] = useState<string | null>(null)
 
   const today = new Date().toISOString().split('T')[0]
+
+  // Weather check for outdoor categories
+  const OUTDOOR_CATS = ['Sport', 'Outdoor', 'Reisen']
+  useEffect(() => {
+    if (!OUTDOOR_CATS.includes(form.category) || !form.date || !location) {
+      setWeatherWarning(null)
+      return
+    }
+    const diffDays = (new Date(form.date).getTime() - Date.now()) / (1000 * 60 * 60 * 24)
+    if (diffDays < 0 || diffDays > 14) { setWeatherWarning(null); return }
+
+    const url = `https://api.open-meteo.com/v1/forecast?latitude=${location.lat}&longitude=${location.lng}&daily=precipitation_sum,weathercode&timezone=auto&start_date=${form.date}&end_date=${form.date}`
+    fetch(url)
+      .then(r => r.json())
+      .then(data => {
+        const precip: number = (data.daily?.precipitation_sum as number[])?.[0] ?? 0
+        const code: number = (data.daily?.weathercode as number[])?.[0] ?? 0
+        if (precip > 2 || code >= 61) {
+          const emoji = code >= 95 ? '⛈️' : code >= 71 ? '🌨️' : '🌧️'
+          setWeatherWarning(`${emoji} Wetterwarnung: ${precip > 0 ? precip.toFixed(1) + ' mm Regen erwartet' : 'Schlechtes Wetter vorhergesagt'} — plane ggf. eine Alternative`)
+        } else {
+          setWeatherWarning(null)
+        }
+      })
+      .catch(() => setWeatherWarning(null))
+  }, [form.category, form.date, location?.lat, location?.lng])
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -169,6 +196,13 @@ export function CreatePage({ userId }: CreatePageProps) {
           <p className="text-xs font-black uppercase tracking-widest mb-3 text-gray-400">Ort</p>
           <LocationSearch value={location} onChange={setLocation} />
         </div>
+
+        {/* Weather Warning */}
+        {weatherWarning && (
+          <div className="px-4 py-3 rounded-2xl text-sm font-semibold text-amber-700 bg-amber-50 border border-amber-200 leading-snug">
+            {weatherWarning}
+          </div>
+        )}
 
         {/* Datum & Uhrzeit */}
         <div className="bg-white rounded-3xl p-4 card-shadow" style={{ border: '1px solid var(--border)' }}>

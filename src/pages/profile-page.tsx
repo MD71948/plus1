@@ -1,7 +1,9 @@
 import { useNavigate } from 'react-router-dom'
+import { useState, useEffect } from 'react'
 import { type UserProfile } from '../types'
 import { BottomNav } from '../components/layout/bottom-nav'
 import { ScoreBadge } from '../components/ui/score-badge'
+import { supabase } from '../lib/supabase'
 
 interface ProfilePageProps {
   profile: UserProfile
@@ -10,6 +12,11 @@ interface ProfilePageProps {
 
 export function ProfilePage({ profile, onSignOut }: ProfilePageProps) {
   const navigate = useNavigate()
+  const [crew, setCrew] = useState<UserProfile[]>([])
+
+  useEffect(() => {
+    loadCrew(profile.user_id).then(setCrew)
+  }, [profile.user_id])
 
   const allTags = [...(profile.interests ?? []), ...(profile.custom_interests ?? [])]
   const memberSince = new Date(profile.created_at).toLocaleDateString('de-DE', { month: 'long', year: 'numeric' })
@@ -119,6 +126,35 @@ export function ProfilePage({ profile, onSignOut }: ProfilePageProps) {
           </div>
         )}
 
+        {/* Crew */}
+        {crew.length > 0 && (
+          <div className="bg-white rounded-3xl p-4 mb-3 card-shadow" style={{ border: '1px solid var(--border)' }}>
+            <div className="flex items-center gap-2 mb-3">
+              <p className="text-xs font-black uppercase tracking-widest text-gray-400">Meine Crew</p>
+              <span className="w-5 h-5 rounded-full bg-violet-100 text-violet-700 text-[10px] font-black flex items-center justify-center">{crew.length}</span>
+            </div>
+            <div className="flex flex-col gap-3">
+              {crew.map(member => (
+                <button key={member.user_id} onClick={() => navigate(`/user/${member.user_id}`)}
+                  className="press flex items-center gap-3 w-full text-left">
+                  <div className="w-11 h-11 rounded-2xl overflow-hidden flex-shrink-0 border border-gray-100">
+                    {member.avatar_url
+                      ? <img src={member.avatar_url} alt={member.name} className="w-full h-full object-cover" />
+                      : <div className="w-full h-full flex items-center justify-center text-base font-black text-white"
+                          style={{ background: 'linear-gradient(135deg, #7C3AED, #5B21B6)' }}>{member.name[0]}</div>
+                    }
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="text-sm font-bold text-gray-900">{member.name}</div>
+                    {member.city && <div className="text-xs text-gray-500">{member.city}</div>}
+                  </div>
+                  <ScoreBadge score={member.show_up_score ?? 100} count={member.ratings_count ?? 0} />
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
         {/* Mitglied seit */}
         <p className="text-center text-xs font-semibold text-gray-400">
           Dabei seit {memberSince}
@@ -141,4 +177,57 @@ export function ProfilePage({ profile, onSignOut }: ProfilePageProps) {
       <BottomNav />
     </div>
   )
+}
+
+// Computes users who shared 3+ activities with the given userId
+async function loadCrew(userId: string): Promise<UserProfile[]> {
+  // Get all activity IDs where I'm an accepted participant
+  const { data: myRequests } = await supabase
+    .from('activity_requests')
+    .select('activity_id')
+    .eq('user_id', userId)
+    .eq('status', 'accepted')
+
+  // Get all activity IDs where I'm the host
+  const { data: myHosted } = await supabase
+    .from('activities')
+    .select('id')
+    .eq('host_id', userId)
+
+  const myActivityIds = [
+    ...(myRequests ?? []).map(r => r.activity_id as string),
+    ...(myHosted ?? []).map(a => a.id as string),
+  ]
+
+  if (myActivityIds.length === 0) return []
+
+  // Get all accepted participants in those activities (excluding myself)
+  const { data: others } = await supabase
+    .from('activity_requests')
+    .select('user_id, activity_id')
+    .in('activity_id', myActivityIds)
+    .eq('status', 'accepted')
+    .neq('user_id', userId)
+
+  if (!others?.length) return []
+
+  // Count how many shared activities each user has with me
+  const counts: Record<string, number> = {}
+  for (const r of others) {
+    counts[r.user_id] = (counts[r.user_id] ?? 0) + 1
+  }
+
+  // Crew = users with 3+ shared activities
+  const crewIds = Object.entries(counts)
+    .filter(([, count]) => count >= 3)
+    .map(([uid]) => uid)
+
+  if (crewIds.length === 0) return []
+
+  const { data: profiles } = await supabase
+    .from('user_profiles')
+    .select('*')
+    .in('user_id', crewIds)
+
+  return profiles ?? []
 }

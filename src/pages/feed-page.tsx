@@ -13,9 +13,27 @@ const DEFAULT_CENTER: [number, number] = [52.52, 13.405]
 
 type FeedTab = 'map' | 'now' | 'list'
 
+// Maps activity categories to matching interest tags
+const CATEGORY_INTERESTS: Record<string, string[]> = {
+  'Sport': ['Sport', 'Padel', 'Tennis', 'Fußball', 'Laufen', 'Schwimmen', 'Fitness', 'Radfahren', 'Klettern', 'Yoga'],
+  'Outdoor': ['Outdoor', 'Wandern', 'Radfahren', 'Klettern'],
+  'Essen & Trinken': ['Kochen', 'Essen gehen', 'Bars/Nightlife'],
+  'Kultur & Kunst': ['Kultur', 'Kino', 'Fotografie'],
+  'Musik': ['Musik'],
+  'Gaming': ['Gaming', 'Brettspiele'],
+  'Reisen': ['Reisen'],
+  'Lernen': ['Sprachen/Tandem', 'Volunteering'],
+}
+
+function interestScore(category: string, userInterests: string[]): number {
+  if (!userInterests.length) return 0
+  return (CATEGORY_INTERESTS[category] ?? []).filter(i => userInterests.includes(i)).length
+}
+
 interface FeedPageProps {
   pendingCount?: number
   notifCount?: number
+  userInterests?: string[]
 }
 
 // Pans map to selected activity
@@ -89,7 +107,7 @@ const CAT_COLORS: Record<string, string> = {
   'Sonstiges': '#94A3B8',
 }
 
-export function FeedPage({ pendingCount = 0, notifCount = 0 }: FeedPageProps) {
+export function FeedPage({ pendingCount = 0, notifCount = 0, userInterests = [] }: FeedPageProps) {
   const navigate = useNavigate()
   const [activities, setActivities] = useState<Activity[]>([])
   const [tab, setTab] = useState<FeedTab>('map')
@@ -137,8 +155,13 @@ export function FeedPage({ pendingCount = 0, notifCount = 0 }: FeedPageProps) {
       list = list.filter(a => haversineKm(userPos[0], userPos[1], a.lat, a.lng) <= distanceKm)
     }
 
+    // Sort by interest match (activities matching user's interests come first)
+    if (userInterests.length > 0) {
+      list = [...list].sort((a, b) => interestScore(b.category, userInterests) - interestScore(a.category, userInterests))
+    }
+
     return list
-  }, [activities, search, categoryFilter, vibeFilter, distanceKm, userPos])
+  }, [activities, search, categoryFilter, vibeFilter, distanceKm, userPos, userInterests])
 
   const nowActivities = useMemo(() =>
     activities.filter(a => isWithinHours(a.date_time, 2) && a.status !== 'cancelled'),
