@@ -1,5 +1,5 @@
 import { useEffect, useState, useMemo, useRef } from 'react'
-import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet'
+import { MapContainer, TileLayer, Marker, Popup, Circle, useMap } from 'react-leaflet'
 import { DivIcon } from 'leaflet'
 import { useNavigate } from 'react-router-dom'
 import 'leaflet/dist/leaflet.css'
@@ -356,6 +356,20 @@ export function FeedPage({ userId, pendingCount = 0, notifCount = 0, userInteres
             />
             <MapPanner center={selectedActivity ? [selectedActivity.lat, selectedActivity.lng] : null} />
             <LocateButton userPos={userPos} />
+            {userPos && distanceKm < 50 && (
+              <Circle
+                center={userPos}
+                radius={distanceKm * 1000}
+                pathOptions={{
+                  color: '#7C3AED',
+                  fillColor: '#7C3AED',
+                  fillOpacity: 0.06,
+                  weight: 2,
+                  opacity: 0.4,
+                  dashArray: '6 4',
+                }}
+              />
+            )}
             {filtered.map(a => {
               const isSelected = a.id === selectedActivity?.id
               const color = CAT_COLORS[a.category] ?? '#7C3AED'
