@@ -162,6 +162,9 @@ export function ProfilePage({ profile, onSignOut }: ProfilePageProps) {
           </div>
         )}
 
+        {/* Account Settings */}
+        <AccountSection />
+
         {/* Mitglied seit */}
         <p className="text-center text-xs font-semibold text-gray-400 mb-1">
           Dabei seit {memberSince}
@@ -253,6 +256,112 @@ async function loadCrew(userId: string): Promise<UserProfile[]> {
     .in('user_id', crewIds)
 
   return profiles ?? []
+}
+
+// Account settings: email display + password change
+function AccountSection() {
+  const [email, setEmail] = useState<string | null>(null)
+  const [provider, setProvider] = useState<string>('email')
+  const [open, setOpen] = useState(false)
+  const [newPassword, setNewPassword] = useState('')
+  const [confirmPassword, setConfirmPassword] = useState('')
+  const [saving, setSaving] = useState(false)
+  const [msg, setMsg] = useState<{ type: 'ok' | 'err'; text: string } | null>(null)
+
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data }) => {
+      setEmail(data.user?.email ?? null)
+      setProvider(data.user?.app_metadata?.provider ?? 'email')
+    })
+  }, [])
+
+  async function handleChangePassword(e: React.FormEvent) {
+    e.preventDefault()
+    setMsg(null)
+    if (newPassword.length < 8) {
+      setMsg({ type: 'err', text: 'Passwort muss mindestens 8 Zeichen haben.' }); return
+    }
+    if (newPassword !== confirmPassword) {
+      setMsg({ type: 'err', text: 'Passwörter stimmen nicht überein.' }); return
+    }
+    setSaving(true)
+    const { error } = await supabase.auth.updateUser({ password: newPassword })
+    setSaving(false)
+    if (error) {
+      setMsg({ type: 'err', text: 'Fehler: ' + error.message })
+    } else {
+      setMsg({ type: 'ok', text: '✅ Passwort erfolgreich geändert.' })
+      setNewPassword(''); setConfirmPassword(''); setOpen(false)
+    }
+  }
+
+  return (
+    <div className="bg-white rounded-3xl p-4 mb-3 card-shadow" style={{ border: '1px solid var(--border)' }}>
+      <p className="text-xs font-black uppercase tracking-widest mb-3 text-gray-400">Account</p>
+
+      {/* Email */}
+      {email && (
+        <div className="flex items-center gap-3 mb-3 px-1">
+          <div className="w-8 h-8 rounded-xl bg-gray-100 flex items-center justify-center text-sm">
+            {provider === 'google' ? '🔵' : '✉️'}
+          </div>
+          <div>
+            <p className="text-xs font-semibold text-gray-400">{provider === 'google' ? 'Google-Konto' : 'E-Mail'}</p>
+            <p className="text-sm font-bold text-gray-800">{email}</p>
+          </div>
+        </div>
+      )}
+
+      {/* Password change — only for email/password users */}
+      {provider === 'email' && (
+        <>
+          <button onClick={() => { setOpen(o => !o); setMsg(null) }}
+            className="w-full flex items-center justify-between px-4 py-2.5 rounded-2xl text-sm font-bold border transition-all"
+            style={{ background: '#F9F9FB', borderColor: '#E8E8ED', color: '#374151' }}>
+            <span>🔑 Passwort ändern</span>
+            <span className="text-gray-300 text-xs">{open ? '▲' : '▼'}</span>
+          </button>
+
+          {open && (
+            <form onSubmit={handleChangePassword} className="flex flex-col gap-2 mt-3">
+              <input
+                type="password"
+                value={newPassword}
+                onChange={e => setNewPassword(e.target.value)}
+                placeholder="Neues Passwort (min. 8 Zeichen)"
+                required minLength={8}
+                className="w-full px-4 py-2.5 rounded-2xl text-sm font-medium text-gray-900 bg-gray-50 border border-gray-200 outline-none focus:border-violet-400 focus:bg-white transition-all"
+              />
+              <input
+                type="password"
+                value={confirmPassword}
+                onChange={e => setConfirmPassword(e.target.value)}
+                placeholder="Passwort bestätigen"
+                required minLength={8}
+                className="w-full px-4 py-2.5 rounded-2xl text-sm font-medium text-gray-900 bg-gray-50 border border-gray-200 outline-none focus:border-violet-400 focus:bg-white transition-all"
+              />
+              {msg && (
+                <p className={`text-xs font-semibold px-3 py-2 rounded-xl ${msg.type === 'ok' ? 'bg-emerald-50 text-emerald-600' : 'bg-red-50 text-red-500'}`}>
+                  {msg.text}
+                </p>
+              )}
+              <button type="submit" disabled={saving}
+                className="w-full py-2.5 rounded-2xl text-sm font-bold text-white transition-all disabled:opacity-50"
+                style={{ background: 'linear-gradient(135deg, #7C3AED, #5B21B6)' }}>
+                {saving ? 'Wird gespeichert…' : 'Passwort speichern'}
+              </button>
+            </form>
+          )}
+        </>
+      )}
+
+      {provider === 'google' && (
+        <p className="text-xs text-gray-400 px-1">
+          Du bist per Google eingeloggt — Passwort wird über Google verwaltet.
+        </p>
+      )}
+    </div>
+  )
 }
 
 // Delete account button with confirmation flow
