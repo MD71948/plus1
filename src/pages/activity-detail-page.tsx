@@ -632,28 +632,6 @@ function Avatar({ url, name }: { url?: string | null; name?: string }) {
         style={{ background: 'linear-gradient(135deg, #7C3AED, #5B21B6)' }}>{name?.[0] ?? '?'}</div>
 }
 
-function RequestRow({ req, loading, onAccept, onReject }: {
-  req: ActivityRequestWithProfile; loading: boolean; onAccept: () => void; onReject: () => void
-}) {
-  return (
-    <div className="flex items-center gap-3">
-      <div className="w-10 h-10 rounded-2xl overflow-hidden flex-shrink-0 border border-gray-100">
-        <Avatar url={req.profile?.avatar_url} name={req.profile?.name} />
-      </div>
-      <div className="flex-1 min-w-0">
-        <div className="text-sm font-bold text-gray-900">{req.profile?.name ?? 'Unbekannt'}</div>
-        {req.message && <div className="text-xs text-gray-500 mt-0.5">„{req.message}"</div>}
-      </div>
-      <div className="flex gap-2">
-        <button onClick={onReject} disabled={loading}
-          className="press w-9 h-9 rounded-xl flex items-center justify-center text-red-500 bg-red-50 border border-red-100">✕</button>
-        <button onClick={onAccept} disabled={loading}
-          className="press w-9 h-9 rounded-xl flex items-center justify-center text-emerald-600 bg-emerald-50 border border-emerald-100">✓</button>
-      </div>
-    </div>
-  )
-}
-
 function ParticipantRow({ req, loading, onRemove }: {
   req: ActivityRequestWithProfile; loading: boolean; onRemove: () => void
 }) {

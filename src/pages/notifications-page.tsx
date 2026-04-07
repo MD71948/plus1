@@ -57,7 +57,7 @@ export function NotificationsPage({ userId, onSeen }: NotificationsPageProps) {
 
     if (reqData) {
       setRequests(reqData.map(r => {
-        const act = r.activities as { title: string; category: string; date_time: string } | null
+        const act = r.activities as unknown as { title: string; category: string; date_time: string } | null
         return {
           id: r.id,
           status: r.status as 'pending' | 'accepted' | 'rejected',
@@ -92,7 +92,7 @@ export function NotificationsPage({ userId, onSeen }: NotificationsPageProps) {
       // Build title map
       const titleMap: Record<string, string> = {}
       ;(acceptedReqs ?? []).forEach(r => {
-        const act = r.activities as { title: string } | null
+        const act = r.activities as unknown as { title: string } | null
         if (act) titleMap[r.activity_id] = act.title
       })
       ;(hostedActs ?? []).forEach(a => { titleMap[a.id] = a.title })
@@ -108,7 +108,7 @@ export function NotificationsPage({ userId, onSeen }: NotificationsPageProps) {
 
       if (msgData) {
         setMessages(msgData.map(m => {
-          const prof = m.user_profiles as { name: string; avatar_url: string | null } | null
+          const prof = m.user_profiles as unknown as { name: string; avatar_url: string | null } | null
           return {
             id: m.id,
             content: m.content,
