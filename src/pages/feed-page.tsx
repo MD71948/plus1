@@ -122,12 +122,22 @@ export function FeedPage({ userId, pendingCount = 0, notifCount = 0, userInteres
   const [selectedActivity, setSelectedActivity] = useState<Activity | null>(null)
   const [following, setFollowing] = useState<Set<string>>(new Set())
   const [followers, setFollowers] = useState<Set<string>>(new Set())
+  const [cityName, setCityName] = useState<string | null>(null)
   const cardStripRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
-    navigator.geolocation?.getCurrentPosition(pos =>
-      setUserPos([pos.coords.latitude, pos.coords.longitude])
-    )
+    navigator.geolocation?.getCurrentPosition(pos => {
+      const { latitude: lat, longitude: lng } = pos.coords
+      setUserPos([lat, lng])
+      // Reverse geocode to get city name
+      fetch(`https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json`)
+        .then(r => r.json())
+        .then(d => {
+          const city = d.address?.city || d.address?.town || d.address?.village || d.address?.suburb
+          if (city) setCityName(city)
+        })
+        .catch(() => {})
+    })
     supabase
       .from('activities')
       .select('*')
@@ -224,9 +234,14 @@ export function FeedPage({ userId, pendingCount = 0, notifCount = 0, userInteres
             </div>
           ) : (
             <>
-              <span className="text-xl font-black tracking-tight flex-1">
-                <span className="text-gray-900">plus</span><span style={{ color: 'var(--accent)' }}>1</span>
-              </span>
+              <div className="flex-1 flex flex-col justify-center">
+                <span className="text-xl font-black tracking-tight leading-none">
+                  <span className="text-gray-900">plus</span><span style={{ color: 'var(--accent)' }}>1</span>
+                </span>
+                {cityName && (
+                  <span className="text-[10px] font-semibold text-gray-400 leading-none mt-0.5">📍 {cityName}</span>
+                )}
+              </div>
 
               {/* Tab switcher */}
               <div className="flex p-0.5 rounded-xl gap-0.5 bg-gray-100">
@@ -359,6 +374,22 @@ export function FeedPage({ userId, pendingCount = 0, notifCount = 0, userInteres
               )
             })}
           </MapContainer>
+
+          {/* Radius quick-filter overlay — top left */}
+          <div className="absolute top-3 left-3 z-[1000] flex gap-1 p-1 rounded-2xl"
+            style={{ background: 'rgba(255,255,255,0.92)', backdropFilter: 'blur(12px)', boxShadow: '0 2px 10px rgba(0,0,0,0.12)', border: '1px solid var(--border)' }}>
+            {([50, 5, 10, 20] as const).map(km => {
+              const label = km === 50 ? 'Alle' : `${km} km`
+              const active = distanceKm === km
+              return (
+                <button key={km} onClick={() => setDistanceKm(km)}
+                  className="px-2.5 py-1.5 rounded-xl text-xs font-black transition-all"
+                  style={active ? { background: '#7C3AED', color: 'white' } : { color: '#6B7280' }}>
+                  {label}
+                </button>
+              )
+            })}
+          </div>
 
           {/* Bottom card strip */}
           {filtered.length > 0 && (
@@ -611,64 +642,63 @@ function ListCard({ activity: a, userPos, onClick }: {
 }) {
   const spotsLeft = a.spots_total - a.spots_taken
   const urgency = getUrgencyLabel(a.date_time)
-  const catClass = getCategoryClass(a.category)
   const isToday = new Date(a.date_time).toDateString() === new Date().toDateString()
   const dateStr = isToday ? 'Heute' : new Date(a.date_time).toLocaleDateString('de-DE', { weekday: 'short', day: 'numeric', month: 'short' })
   const timeStr = new Date(a.date_time).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })
   const dist = userPos ? haversineKm(userPos[0], userPos[1], a.lat, a.lng) : null
-  const colors = ['#7C3AED', '#EC4899', '#06B6D4', '#F59E0B']
-  const takenCount = Math.min(a.spots_taken, 4)
   const vibeInfo = VIBES.find(v => v.label === a.vibe)
+  const color = CAT_COLORS[a.category] ?? '#7C3AED'
+  const catEmoji = ACTIVITY_CATEGORIES.find(c => c.label === a.category)?.emoji ?? '📌'
 
   return (
     <div onClick={onClick}
-      className="press rounded-3xl p-5 flex flex-col gap-3 cursor-pointer bg-white card-shadow transition-all hover:shadow-md"
+      className="press rounded-3xl overflow-hidden cursor-pointer bg-white card-shadow transition-all"
       style={{ border: '1px solid var(--border)' }}>
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-1.5">
-          <span className={`${catClass} text-xs font-bold px-3 py-1 rounded-full border`}>{a.category}</span>
-          {vibeInfo && (
-            <span className="text-xs font-bold px-2 py-0.5 rounded-full border"
-              style={{ background: vibeInfo.bg, color: vibeInfo.color, borderColor: vibeInfo.border }}>
-              {vibeInfo.emoji} {vibeInfo.label}
+
+      {/* Colored header strip */}
+      <div className="px-4 pt-3 pb-6 relative"
+        style={{ background: `linear-gradient(135deg, ${color}CC, ${color})` }}>
+        <div className="flex items-center justify-between mb-2">
+          <span className="text-white/80 text-xs font-bold">{catEmoji} {a.category}</span>
+          <div className="flex items-center gap-1.5">
+            {vibeInfo && (
+              <span className="text-xs font-bold px-2 py-0.5 rounded-full"
+                style={{ background: 'rgba(255,255,255,0.2)', color: 'white' }}>
+                {vibeInfo.emoji} {vibeInfo.label}
+              </span>
+            )}
+            <span className="text-xs font-bold px-2.5 py-0.5 rounded-full"
+              style={spotsLeft > 0
+                ? { background: 'rgba(255,255,255,0.25)', color: 'white' }
+                : { background: 'rgba(0,0,0,0.2)', color: 'rgba(255,255,255,0.5)' }}>
+              {spotsLeft > 0 ? `${spotsLeft} frei` : 'Voll'}
             </span>
-          )}
+          </div>
         </div>
-        <span className={`text-xs font-bold px-3 py-1 rounded-full border ${spotsLeft > 0 ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-gray-100 text-gray-400 border-gray-200'}`}>
-          {spotsLeft > 0 ? `${spotsLeft} frei` : 'Voll'}
-        </span>
+        <h3 className="text-white font-black text-base leading-snug">{a.title}</h3>
       </div>
-      <h3 className="text-base font-bold text-gray-900 leading-snug">{a.title}</h3>
-      <div className="flex items-center justify-between">
+
+      {/* White bottom */}
+      <div className="px-4 pt-3 pb-3 flex items-center justify-between -mt-3 bg-white rounded-t-2xl relative">
         <div className="flex flex-col gap-1">
           <div className="flex items-center gap-1.5 text-xs font-semibold text-gray-500">
-            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-            </svg>
-            <span className={isToday ? 'text-violet-600 font-bold' : ''}>{dateStr}</span>
+            <span className={isToday ? 'text-violet-600 font-black' : ''}>
+              {isToday ? '📅 Heute' : `📅 ${dateStr}`}
+            </span>
             <span className="text-gray-300">·</span>
             <span>{timeStr} Uhr</span>
           </div>
-          <div className="flex items-center gap-1.5 text-xs font-semibold text-gray-500">
-            <svg className="w-3.5 h-3.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-            </svg>
-            <span className="truncate max-w-[120px]">{a.location_name}</span>
-            {dist !== null && <span className="text-violet-600 font-bold">· {formatDistance(dist)}</span>}
+          <div className="flex items-center gap-1 text-xs font-semibold text-gray-500">
+            <span>📍</span>
+            <span className="truncate max-w-[140px]">{a.location_name}</span>
+            {dist !== null && <span className="text-violet-600 font-bold ml-0.5">· {formatDistance(dist)}</span>}
           </div>
         </div>
-        <div className="flex flex-col items-end gap-1.5">
-          {urgency && <span className="text-xs font-black px-2.5 py-1 rounded-full bg-amber-50 text-amber-600 border border-amber-200">{urgency}</span>}
-          {takenCount > 0 && (
-            <div className="flex items-center">
-              {Array.from({ length: takenCount }).map((_, i) => (
-                <div key={i} className="w-6 h-6 rounded-full border-2 border-white -ml-1.5 first:ml-0"
-                  style={{ background: colors[i % colors.length], zIndex: takenCount - i }} />
-              ))}
-              <span className="ml-1.5 text-xs font-bold text-gray-400">dabei</span>
-            </div>
-          )}
-        </div>
+        {urgency && (
+          <span className="text-xs font-black px-2.5 py-1 rounded-full bg-amber-50 text-amber-600 border border-amber-200 flex-shrink-0">
+            {urgency}
+          </span>
+        )}
       </div>
     </div>
   )
