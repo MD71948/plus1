@@ -12,6 +12,8 @@ import { ActivityDetailPage } from './pages/activity-detail-page'
 import { MyActivitiesPage } from './pages/my-activities-page'
 import { NotificationsPage } from './pages/notifications-page'
 import { UserProfilePage } from './pages/user-profile-page'
+import { ImpressumPage } from './pages/impressum-page'
+import { DatenschutzPage } from './pages/datenschutz-page'
 import { supabase } from './lib/supabase'
 
 function AppRoutes() {
@@ -157,6 +159,8 @@ function AppRoutes() {
           ? <NotificationsPage userId={user.id} onSeen={() => setNotifCount(0)} />
           : <Navigate to="/setup" replace />}
       />
+      <Route path="/impressum" element={<ImpressumPage />} />
+      <Route path="/datenschutz" element={<DatenschutzPage />} />
       <Route path="*" element={<Navigate to={profile ? '/feed' : '/setup'} replace />} />
     </Routes>
   )

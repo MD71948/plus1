@@ -1,0 +1,18 @@
+{
+  "name": "plus1 — Spontane Aktivitäten",
+  "short_name": "plus1",
+  "description": "In 30 Sekunden von 'Ich hab Bock' zu 'Wir sind komplett.'",
+  "start_url": "/feed",
+  "display": "standalone",
+  "background_color": "#F4F4F6",
+  "theme_color": "#7C3AED",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

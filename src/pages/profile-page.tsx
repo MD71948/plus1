@@ -163,9 +163,25 @@ export function ProfilePage({ profile, onSignOut }: ProfilePageProps) {
         )}
 
         {/* Mitglied seit */}
-        <p className="text-center text-xs font-semibold text-gray-400">
+        <p className="text-center text-xs font-semibold text-gray-400 mb-1">
           Dabei seit {memberSince}
         </p>
+
+        {/* Legal links */}
+        <div className="flex justify-center gap-4 mb-2">
+          <button onClick={() => navigate('/impressum')}
+            className="text-xs font-semibold text-gray-400 hover:text-violet-600 transition-colors">
+            Impressum
+          </button>
+          <span className="text-gray-200">·</span>
+          <button onClick={() => navigate('/datenschutz')}
+            className="text-xs font-semibold text-gray-400 hover:text-violet-600 transition-colors">
+            Datenschutz
+          </button>
+        </div>
+
+        {/* Delete account */}
+        <DeleteAccountButton onDeleted={onSignOut} />
 
         {/* Empty state */}
         {allTags.length === 0 && (
@@ -237,4 +253,53 @@ async function loadCrew(userId: string): Promise<UserProfile[]> {
     .in('user_id', crewIds)
 
   return profiles ?? []
+}
+
+// Delete account button with confirmation flow
+function DeleteAccountButton({ onDeleted }: { onDeleted: () => void }) {
+  const [step, setStep] = useState<'idle' | 'confirm' | 'deleting'>('idle')
+
+  async function handleDelete() {
+    setStep('deleting')
+    await supabase.rpc('delete_current_user')
+    await supabase.auth.signOut()
+    onDeleted()
+  }
+
+  if (step === 'idle') {
+    return (
+      <button onClick={() => setStep('confirm')}
+        className="w-full text-center text-xs font-semibold text-gray-300 hover:text-red-400 transition-colors py-2">
+        Konto löschen
+      </button>
+    )
+  }
+
+  if (step === 'confirm') {
+    return (
+      <div className="bg-red-50 border border-red-100 rounded-3xl p-5 flex flex-col gap-3">
+        <div>
+          <p className="text-sm font-black text-red-600">Konto wirklich löschen?</p>
+          <p className="text-xs text-red-400 mt-1">Alle deine Daten werden sofort und unwiderruflich gelöscht.</p>
+        </div>
+        <div className="flex gap-2">
+          <button onClick={() => setStep('idle')}
+            className="flex-1 py-2.5 rounded-2xl text-sm font-bold text-gray-600 bg-white border border-gray-200">
+            Abbrechen
+          </button>
+          <button onClick={handleDelete}
+            className="flex-1 py-2.5 rounded-2xl text-sm font-bold text-white bg-red-500 border border-red-400">
+            Löschen
+          </button>
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div className="text-center py-4">
+      <div className="w-5 h-5 border-2 border-red-200 border-t-red-500 rounded-full animate-spin mx-auto" />
+      <p className="text-xs text-gray-400 mt-2">Wird gelöscht…</p>
+    </div>
+  )
 }
