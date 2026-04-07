@@ -14,6 +14,7 @@ import { NotificationsPage } from './pages/notifications-page'
 import { UserProfilePage } from './pages/user-profile-page'
 import { ImpressumPage } from './pages/impressum-page'
 import { DatenschutzPage } from './pages/datenschutz-page'
+import { OnboardingPage } from './pages/onboarding-page'
 import { supabase } from './lib/supabase'
 
 function AppRoutes() {
@@ -21,6 +22,9 @@ function AppRoutes() {
   const { profile, loading: profileLoading, setProfile } = useProfile(user?.id)
   const [pendingCount, setPendingCount] = useState(0)
   const [notifCount, setNotifCount] = useState(0)
+  const [onboardingDone, setOnboardingDone] = useState(
+    () => !!localStorage.getItem('onboarding_done')
+  )
 
   useEffect(() => {
     if (!user) return
@@ -127,6 +131,11 @@ function AppRoutes() {
 
   async function handleSignOut() {
     await supabase.auth.signOut()
+  }
+
+  // Show onboarding once after first login
+  if (!onboardingDone) {
+    return <OnboardingPage onDone={() => setOnboardingDone(true)} />
   }
 
   return (
