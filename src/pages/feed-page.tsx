@@ -31,6 +31,7 @@ function interestScore(category: string, userInterests: string[]): number {
 }
 
 interface FeedPageProps {
+  userId: string
   pendingCount?: number
   notifCount?: number
   userInterests?: string[]
@@ -107,7 +108,7 @@ const CAT_COLORS: Record<string, string> = {
   'Sonstiges': '#94A3B8',
 }
 
-export function FeedPage({ pendingCount = 0, notifCount = 0, userInterests = [] }: FeedPageProps) {
+export function FeedPage({ userId, pendingCount = 0, notifCount = 0, userInterests = [] }: FeedPageProps) {
   const navigate = useNavigate()
   const [activities, setActivities] = useState<Activity[]>([])
   const [tab, setTab] = useState<FeedTab>('map')
@@ -119,6 +120,8 @@ export function FeedPage({ pendingCount = 0, notifCount = 0, userInterests = [] 
   const [distanceKm, setDistanceKm] = useState(50)
   const [showFilters, setShowFilters] = useState(false)
   const [selectedActivity, setSelectedActivity] = useState<Activity | null>(null)
+  const [following, setFollowing] = useState<Set<string>>(new Set())
+  const [followers, setFollowers] = useState<Set<string>>(new Set())
   const cardStripRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -135,10 +138,24 @@ export function FeedPage({ pendingCount = 0, notifCount = 0, userInterests = [] 
         setActivities(list)
         if (list.length > 0) setSelectedActivity(list[0])
       })
-  }, [])
+    // Load who I follow and who follows me (for visibility filtering)
+    supabase.from('user_follows').select('following_id').eq('follower_id', userId)
+      .then(({ data }) => setFollowing(new Set(data?.map(f => f.following_id as string) ?? [])))
+    supabase.from('user_follows').select('follower_id').eq('following_id', userId)
+      .then(({ data }) => setFollowers(new Set(data?.map(f => f.follower_id as string) ?? [])))
+  }, [userId])
 
   const filtered = useMemo(() => {
-    let list = activities.filter(a => a.status !== 'cancelled')
+    let list = activities.filter(a => {
+      if (a.status === 'cancelled') return false
+      // Visibility filter: own activities always visible
+      if (a.host_id === userId) return true
+      const vis = a.visibility ?? 'public'
+      if (vis === 'public') return true
+      if (vis === 'followers') return following.has(a.host_id)
+      if (vis === 'friends') return following.has(a.host_id) && followers.has(a.host_id)
+      return true
+    })
 
     if (search.trim()) {
       const q = search.toLowerCase()
@@ -161,7 +178,7 @@ export function FeedPage({ pendingCount = 0, notifCount = 0, userInterests = [] 
     }
 
     return list
-  }, [activities, search, categoryFilter, vibeFilter, distanceKm, userPos, userInterests])
+  }, [activities, search, categoryFilter, vibeFilter, distanceKm, userPos, userInterests, following, followers, userId])
 
   const nowActivities = useMemo(() =>
     activities.filter(a => isWithinHours(a.date_time, 2) && a.status !== 'cancelled'),

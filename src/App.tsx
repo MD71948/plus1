@@ -142,7 +142,7 @@ function AppRoutes() {
           ? <ProfilePage profile={profile} onSignOut={handleSignOut} />
           : <Navigate to="/setup" replace />}
       />
-      <Route path="/feed" element={<FeedPage pendingCount={pendingCount} notifCount={notifCount} userInterests={[...(profile?.interests ?? []), ...(profile?.custom_interests ?? [])]} />} />
+      <Route path="/feed" element={<FeedPage userId={user.id} pendingCount={pendingCount} notifCount={notifCount} userInterests={[...(profile?.interests ?? []), ...(profile?.custom_interests ?? [])]} />} />
       <Route path="/create" element={<CreatePage userId={user.id} />} />
       <Route path="/activity/:id" element={<ActivityDetailPage userId={user.id} />} />
       <Route path="/activity/:id/edit" element={<EditActivityPage userId={user.id} />} />

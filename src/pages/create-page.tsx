@@ -31,6 +31,7 @@ export function CreatePage({ userId }: CreatePageProps) {
     hour: '12',
     minute: '00',
     spots_total: '3',
+    visibility: 'public' as 'public' | 'followers' | 'friends',
   })
   const [location, setLocation] = useState<SelectedLocation | null>(null)
   const [saving, setSaving] = useState(false)
@@ -84,6 +85,7 @@ export function CreatePage({ userId }: CreatePageProps) {
         description: form.description.trim() || null,
         category: form.category,
         vibe: form.vibe || null,
+        visibility: form.visibility,
         location_name: location.name,
         address: location.address,
         lat: location.lat,
@@ -165,6 +167,35 @@ export function CreatePage({ userId }: CreatePageProps) {
               >
                 <span>{v.emoji}</span>
                 {v.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Sichtbarkeit */}
+        <div className="bg-white rounded-3xl p-4 card-shadow" style={{ border: '1px solid var(--border)' }}>
+          <p className="text-xs font-black uppercase tracking-widest mb-3 text-gray-400">Wer kann mitmachen?</p>
+          <div className="flex flex-col gap-2">
+            {([
+              { value: 'public', emoji: '🌍', label: 'Alle', desc: 'Jeder sieht diese Aktivität' },
+              { value: 'followers', emoji: '👥', label: 'Follower', desc: 'Nur Leute die dir folgen' },
+              { value: 'friends', emoji: '👫', label: 'Freunde', desc: 'Nur gegenseitige Follower' },
+            ] as const).map(opt => (
+              <button key={opt.value} type="button"
+                onClick={() => setForm(f => ({ ...f, visibility: opt.value }))}
+                className="flex items-center gap-3 px-4 py-3 rounded-2xl text-left border transition-all"
+                style={form.visibility === opt.value
+                  ? { background: '#EDE9FE', borderColor: '#DDD6FE', color: '#7C3AED' }
+                  : { background: '#F9F9FB', borderColor: '#E8E8ED', color: '#6B7280' }}>
+                <span className="text-xl">{opt.emoji}</span>
+                <div>
+                  <div className="text-sm font-bold">{opt.label}</div>
+                  <div className="text-xs opacity-70">{opt.desc}</div>
+                </div>
+                {form.visibility === opt.value && (
+                  <div className="ml-auto w-5 h-5 rounded-full flex items-center justify-center text-white text-xs font-black"
+                    style={{ background: '#7C3AED' }}>✓</div>
+                )}
               </button>
             ))}
           </div>

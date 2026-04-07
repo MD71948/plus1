@@ -20,27 +20,56 @@ export function UserProfilePage({ currentUserId }: UserProfilePageProps) {
   const [showReportModal, setShowReportModal] = useState(false)
   const [reportSent, setReportSent] = useState(false)
   const [reportReason, setReportReason] = useState('')
+  const [isFollowing, setIsFollowing] = useState(false)
+  const [isMutual, setIsMutual] = useState(false)
+  const [followerCount, setFollowerCount] = useState(0)
+  const [followingCount, setFollowingCount] = useState(0)
+  const [followLoading, setFollowLoading] = useState(false)
 
   useEffect(() => {
     if (!userId) return
-    // If viewing own profile, redirect
     if (userId === currentUserId) { navigate('/profile', { replace: true }); return }
 
     Promise.all([
       supabase.from('user_profiles').select('*').eq('user_id', userId).single(),
-      supabase.from('activities')
-        .select('*')
-        .eq('host_id', userId)
-        .in('status', ['open', 'full'])
-        .gte('date_time', new Date().toISOString())
-        .order('date_time', { ascending: true })
-        .limit(5),
-    ]).then(([{ data: prof }, { data: acts }]) => {
+      supabase.from('activities').select('*').eq('host_id', userId).in('status', ['open', 'full'])
+        .gte('date_time', new Date().toISOString()).order('date_time', { ascending: true }).limit(5),
+      // Am I following this user?
+      supabase.from('user_follows').select('id').eq('follower_id', currentUserId).eq('following_id', userId).maybeSingle(),
+      // Does this user follow me back?
+      supabase.from('user_follows').select('id').eq('follower_id', userId).eq('following_id', currentUserId).maybeSingle(),
+      // Follower/following counts
+      supabase.from('user_follows').select('id', { count: 'exact', head: true }).eq('following_id', userId),
+      supabase.from('user_follows').select('id', { count: 'exact', head: true }).eq('follower_id', userId),
+    ]).then(([{ data: prof }, { data: acts }, { data: myFollow }, { data: theirFollow }, { count: fc }, { count: fgc }]) => {
       setProfile(prof)
       setActivities(acts ?? [])
+      setIsFollowing(!!myFollow)
+      setIsMutual(!!myFollow && !!theirFollow)
+      setFollowerCount(fc ?? 0)
+      setFollowingCount(fgc ?? 0)
       setLoading(false)
     })
   }, [userId])
+
+  async function toggleFollow() {
+    if (!userId) return
+    setFollowLoading(true)
+    if (isFollowing) {
+      await supabase.from('user_follows').delete().eq('follower_id', currentUserId).eq('following_id', userId)
+      setIsFollowing(false)
+      setIsMutual(false)
+      setFollowerCount(c => c - 1)
+    } else {
+      await supabase.from('user_follows').insert({ follower_id: currentUserId, following_id: userId })
+      setIsFollowing(true)
+      // Check if they follow me back
+      const { data } = await supabase.from('user_follows').select('id').eq('follower_id', userId).eq('following_id', currentUserId).maybeSingle()
+      setIsMutual(!!data)
+      setFollowerCount(c => c + 1)
+    }
+    setFollowLoading(false)
+  }
 
   if (loading) {
     return (
@@ -100,9 +129,21 @@ export function UserProfilePage({ currentUserId }: UserProfilePageProps) {
                 </div>
             }
           </div>
-          <div className="flex flex-col items-end gap-1.5 mb-2">
+          <div className="flex flex-col items-end gap-2 mb-2">
             <ScoreBadge score={profile.show_up_score ?? 100} count={profile.ratings_count ?? 0} size="md" />
-            <span className="text-xs text-gray-400 font-medium">{profile.activities_count ?? 0} Activities</span>
+            <button onClick={toggleFollow} disabled={followLoading}
+              className="press px-5 py-2 rounded-2xl text-sm font-bold border transition-all disabled:opacity-60"
+              style={isMutual
+                ? { background: '#EDE9FE', borderColor: '#DDD6FE', color: '#7C3AED' }
+                : isFollowing
+                  ? { background: '#F3F4F6', borderColor: '#E5E7EB', color: '#6B7280' }
+                  : { background: 'linear-gradient(135deg, #7C3AED, #5B21B6)', color: 'white', border: 'none' }}>
+              {isMutual ? '👫 Freunde' : isFollowing ? 'Folgst du ✓' : '+ Folgen'}
+            </button>
+            <div className="flex gap-3 text-xs text-gray-400 font-semibold">
+              <span><strong className="text-gray-700">{followerCount}</strong> Follower</span>
+              <span><strong className="text-gray-700">{followingCount}</strong> Following</span>
+            </div>
           </div>
         </div>
 

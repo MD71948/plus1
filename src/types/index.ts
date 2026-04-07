@@ -13,8 +13,16 @@ export interface Activity {
   spots_taken: number
   status: 'open' | 'full' | 'cancelled'
   vibe: 'Chill' | 'Kompetitiv' | 'Abenteuer' | 'Kultur' | 'Party' | null
+  visibility: 'public' | 'followers' | 'friends'
   created_at: string
   updated_at: string
+}
+
+export interface UserFollow {
+  id: string
+  follower_id: string
+  following_id: string
+  created_at: string
 }
 
 export interface ActivityRequest {

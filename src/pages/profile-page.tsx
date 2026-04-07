@@ -13,9 +13,15 @@ interface ProfilePageProps {
 export function ProfilePage({ profile, onSignOut }: ProfilePageProps) {
   const navigate = useNavigate()
   const [crew, setCrew] = useState<UserProfile[]>([])
+  const [followerCount, setFollowerCount] = useState(0)
+  const [followingCount, setFollowingCount] = useState(0)
 
   useEffect(() => {
     loadCrew(profile.user_id).then(setCrew)
+    supabase.from('user_follows').select('id', { count: 'exact', head: true }).eq('following_id', profile.user_id)
+      .then(({ count }) => setFollowerCount(count ?? 0))
+    supabase.from('user_follows').select('id', { count: 'exact', head: true }).eq('follower_id', profile.user_id)
+      .then(({ count }) => setFollowingCount(count ?? 0))
   }, [profile.user_id])
 
   const allTags = [...(profile.interests ?? []), ...(profile.custom_interests ?? [])]
@@ -84,11 +90,12 @@ export function ProfilePage({ profile, onSignOut }: ProfilePageProps) {
         </div>
 
         {/* Stats */}
-        <div className="grid grid-cols-3 gap-2 mb-4">
+        <div className="grid grid-cols-4 gap-2 mb-4">
           {[
-            { value: profile.activities_count, label: 'Aktivitäten' },
-            { value: allTags.length, label: 'Interessen' },
-            { value: profile.languages?.length ?? 0, label: 'Sprachen' },
+            { value: profile.activities_count, label: 'Activities' },
+            { value: followerCount, label: 'Follower' },
+            { value: followingCount, label: 'Following' },
+            { value: crew.length, label: 'Crew' },
           ].map(stat => (
             <div key={stat.label} className="bg-white rounded-2xl py-3 text-center card-shadow"
               style={{ border: '1px solid var(--border)' }}>
