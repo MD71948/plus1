@@ -11,7 +11,7 @@ import { ACTIVITY_CATEGORIES, VIBES } from '../lib/constants'
 
 const DEFAULT_CENTER: [number, number] = [52.52, 13.405]
 
-type FeedTab = 'map' | 'now' | 'list'
+type FeedTab = 'map' | 'now' | 'list' | 'foryou'
 
 // Maps activity categories to matching interest tags
 const CATEGORY_INTERESTS: Record<string, string[]> = {
@@ -216,6 +216,7 @@ export function FeedPage({ pendingCount = 0, notifCount = 0, userInterests = [] 
                 {([
                   { key: 'map', label: '🗺 Karte' },
                   { key: 'now', label: '⚡ Jetzt', badge: nowActivities.length },
+                  { key: 'foryou', label: '✨ Für dich' },
                   { key: 'list', label: '☰ Liste' },
                 ] as const).map(t => (
                   <button key={t.key} onClick={() => setTab(t.key)}
@@ -409,6 +410,57 @@ export function FeedPage({ pendingCount = 0, notifCount = 0, userInterests = [] 
                 onClick={() => navigate(`/activity/${a.id}`)}
                 style={{ animationDelay: `${i * 0.05}s` }} />
             ))
+          )}
+        </div>
+      )}
+
+      {/* ── FÜR DICH TAB ── */}
+      {tab === 'foryou' && (
+        <div className="max-w-lg mx-auto px-4 py-4 pb-28 flex flex-col gap-4">
+          {/* Hero */}
+          <div className="rounded-3xl p-5 text-white relative overflow-hidden"
+            style={{ background: 'linear-gradient(135deg, #5B21B6, #7C3AED)' }}>
+            <div className="absolute top-0 right-0 w-40 h-40 rounded-full opacity-20"
+              style={{ background: 'radial-gradient(circle, white 0%, transparent 70%)', transform: 'translate(30%, -30%)' }} />
+            <div className="text-3xl mb-2">✨</div>
+            <h2 className="text-xl font-black mb-1">Für dich</h2>
+            <p className="text-white/70 text-sm">
+              {userInterests.length > 0
+                ? `Basierend auf deinen Interessen: ${userInterests.slice(0, 3).join(', ')}${userInterests.length > 3 ? ' …' : ''}`
+                : 'Füge Interessen in deinem Profil hinzu für bessere Vorschläge.'}
+            </p>
+          </div>
+
+          {/* Jetzt sofort highlight */}
+          {nowActivities.length > 0 && (
+            <div>
+              <p className="text-xs font-black uppercase tracking-widest text-gray-400 px-1 mb-2">⚡ Sofort verfügbar</p>
+              {nowActivities.slice(0, 2).map((a, i) => (
+                <div key={a.id} className="mb-2 animate-fade-up" style={{ animationDelay: `${i * 0.05}s` }}>
+                  <NowCard activity={a} userPos={userPos} onClick={() => navigate(`/activity/${a.id}`)} />
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Personalized list */}
+          {filtered.length === 0 ? (
+            <div className="flex flex-col items-center gap-4 py-12 text-center">
+              <div className="w-20 h-20 rounded-3xl flex items-center justify-center text-4xl bg-violet-50">🔍</div>
+              <p className="text-sm font-bold text-gray-700">Keine passenden Aktivitäten</p>
+              <p className="text-xs text-gray-400">Passe deine Interessen im Profil an</p>
+            </div>
+          ) : (
+            <div>
+              <p className="text-xs font-black uppercase tracking-widest text-gray-400 px-1 mb-2">Alle Empfehlungen</p>
+              <div className="flex flex-col gap-3">
+                {filtered.slice(0, 15).map((a, i) => (
+                  <div key={a.id} className="animate-fade-up" style={{ animationDelay: `${i * 0.04}s`, opacity: 0 }}>
+                    <ListCard activity={a} userPos={userPos} onClick={() => navigate(`/activity/${a.id}`)} />
+                  </div>
+                ))}
+              </div>
+            </div>
           )}
         </div>
       )}

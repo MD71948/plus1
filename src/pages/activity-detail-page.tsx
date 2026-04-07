@@ -33,6 +33,7 @@ export function ActivityDetailPage({ userId }: ActivityDetailPageProps) {
   const [cancelling, setCancelling] = useState(false)
   const [myRatings, setMyRatings] = useState<ActivityRating[]>([]) // ratings I've given
   const [similarActivities, setSimilarActivities] = useState<Activity[]>([])
+  const [showShareCard, setShowShareCard] = useState(false)
   const chatEndRef = useRef<HTMLDivElement>(null)
 
   const isHost = activity?.host_id === userId
@@ -270,6 +271,77 @@ export function ActivityDetailPage({ userId }: ActivityDetailPageProps) {
   return (
     <div className="min-h-screen pb-6" style={{ background: 'var(--bg)' }}>
 
+      {/* Story Share Card Modal */}
+      {showShareCard && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
+          style={{ background: 'rgba(0,0,0,0.7)' }}
+          onClick={() => setShowShareCard(false)}>
+          <div className="flex flex-col items-center gap-4 w-full max-w-xs" onClick={e => e.stopPropagation()}>
+            {/* The Story Card — designed to be screenshotted */}
+            <div className="w-full rounded-3xl overflow-hidden"
+              style={{ boxShadow: '0 20px 60px rgba(0,0,0,0.4)', aspectRatio: '9/16', display: 'flex', flexDirection: 'column' }}>
+              {/* Top gradient */}
+              <div className="flex-1 flex flex-col justify-between p-6"
+                style={{ background: 'linear-gradient(160deg, #3B0764 0%, #7C3AED 50%, #9F67FF 100%)' }}>
+                {/* Logo */}
+                <div className="flex items-center gap-2">
+                  <div className="w-8 h-8 rounded-xl flex items-center justify-center text-sm font-black"
+                    style={{ background: 'rgba(255,255,255,0.2)' }}>⚡</div>
+                  <span className="text-white font-black text-lg tracking-tight">plus<span className="opacity-70">1</span></span>
+                </div>
+
+                {/* Category emoji large */}
+                <div className="text-center">
+                  <div className="text-8xl mb-4">{ACTIVITY_CATEGORIES.find(c => c.label === activity.category)?.emoji ?? '📌'}</div>
+                  <h2 className="text-2xl font-black text-white leading-tight mb-2">{activity.title}</h2>
+                  <p className="text-white/70 text-sm font-semibold">{activity.category}</p>
+                </div>
+
+                {/* Details */}
+                <div className="bg-white/15 rounded-2xl p-4 flex flex-col gap-2">
+                  <div className="flex items-center gap-2 text-white text-sm font-semibold">
+                    <span>📅</span>
+                    <span>{new Date(activity.date_time).toLocaleDateString('de-DE', { weekday: 'long', day: 'numeric', month: 'long' })}</span>
+                  </div>
+                  <div className="flex items-center gap-2 text-white text-sm font-semibold">
+                    <span>🕐</span>
+                    <span>{new Date(activity.date_time).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })} Uhr</span>
+                  </div>
+                  <div className="flex items-center gap-2 text-white text-sm font-semibold">
+                    <span>📍</span>
+                    <span className="truncate">{activity.location_name}</span>
+                  </div>
+                  <div className="flex items-center gap-2 text-white text-sm font-bold">
+                    <span>👥</span>
+                    <span>{activity.spots_total - activity.spots_taken} Plätze noch frei!</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Bottom CTA */}
+              <div className="bg-white px-6 py-5 text-center">
+                <p className="text-xs font-black uppercase tracking-widest text-violet-500 mb-1">Komm dazu!</p>
+                <p className="text-sm font-bold text-gray-900">plus1-App öffnen & mitmachen</p>
+              </div>
+            </div>
+
+            {/* Buttons */}
+            <div className="flex gap-3 w-full">
+              <button onClick={shareActivity}
+                className="flex-1 py-3 rounded-2xl text-sm font-bold text-white"
+                style={{ background: 'linear-gradient(135deg, #7C3AED, #5B21B6)' }}>
+                Teilen
+              </button>
+              <button onClick={() => setShowShareCard(false)}
+                className="flex-1 py-3 rounded-2xl text-sm font-bold text-gray-600 bg-white border border-gray-200">
+                Schließen
+              </button>
+            </div>
+            <p className="text-white/60 text-xs text-center">Screenshot machen und als Instagram Story posten</p>
+          </div>
+        </div>
+      )}
+
       {/* Toast */}
       {toast && (
         <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 animate-fade-up">
@@ -291,8 +363,9 @@ export function ActivityDetailPage({ userId }: ActivityDetailPageProps) {
             </svg>
           </button>
           <h1 className="text-sm font-bold text-gray-900 truncate flex-1">{activity.title}</h1>
-          <button onClick={shareActivity}
-            className="w-9 h-9 rounded-xl flex items-center justify-center text-gray-500 hover:bg-gray-100 transition-all">
+          <button onClick={() => setShowShareCard(true)}
+            className="w-9 h-9 rounded-xl flex items-center justify-center text-gray-500 hover:bg-gray-100 transition-all"
+            title="Story teilen">
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
             </svg>

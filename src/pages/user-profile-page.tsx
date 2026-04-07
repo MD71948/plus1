@@ -17,6 +17,9 @@ export function UserProfilePage({ currentUserId }: UserProfilePageProps) {
   const [profile, setProfile] = useState<UserProfile | null>(null)
   const [activities, setActivities] = useState<Activity[]>([])
   const [loading, setLoading] = useState(true)
+  const [showReportModal, setShowReportModal] = useState(false)
+  const [reportSent, setReportSent] = useState(false)
+  const [reportReason, setReportReason] = useState('')
 
   useEffect(() => {
     if (!userId) return
@@ -74,7 +77,13 @@ export function UserProfilePage({ currentUserId }: UserProfilePageProps) {
             </svg>
           </button>
           <span className="text-white/80 text-xs font-black uppercase tracking-widest">Profil</span>
-          <div className="w-9" />
+          <button onClick={() => setShowReportModal(true)}
+            className="w-9 h-9 rounded-xl flex items-center justify-center bg-white/20 text-white hover:bg-white/30 transition-all"
+            title="Melden">
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+            </svg>
+          </button>
         </div>
       </div>
 
@@ -185,6 +194,67 @@ export function UserProfilePage({ currentUserId }: UserProfilePageProps) {
           )}
         </div>
       </div>
+
+      {/* Report Modal */}
+      {showReportModal && (
+        <div className="fixed inset-0 z-50 flex items-end justify-center p-4"
+          style={{ background: 'rgba(0,0,0,0.5)' }}
+          onClick={() => { setShowReportModal(false); setReportReason('') }}>
+          <div className="w-full max-w-lg bg-white rounded-3xl p-5 flex flex-col gap-4"
+            onClick={e => e.stopPropagation()}>
+            {reportSent ? (
+              <div className="flex flex-col items-center gap-3 py-4 text-center">
+                <div className="text-4xl">✅</div>
+                <h3 className="text-base font-black text-gray-900">Meldung gesendet</h3>
+                <p className="text-sm text-gray-500">Danke. Wir prüfen das Profil.</p>
+                <button onClick={() => { setShowReportModal(false); setReportSent(false); setReportReason('') }}
+                  className="mt-2 px-6 py-2.5 rounded-2xl text-sm font-bold text-white"
+                  style={{ background: 'linear-gradient(135deg, #7C3AED, #5B21B6)' }}>
+                  Schließen
+                </button>
+              </div>
+            ) : (
+              <>
+                <div>
+                  <h3 className="text-base font-black text-gray-900">Profil melden</h3>
+                  <p className="text-xs text-gray-400 mt-1">Warum meldest du dieses Profil?</p>
+                </div>
+                <div className="flex flex-col gap-2">
+                  {[
+                    'Person nutzt App zum Daten',
+                    'Belästigung oder unangemessenes Verhalten',
+                    'Fake-Profil / falsche Identität',
+                    'Anderes',
+                  ].map(reason => (
+                    <button key={reason} onClick={() => setReportReason(reason)}
+                      className="px-4 py-3 rounded-2xl text-sm font-semibold text-left border transition-all"
+                      style={reportReason === reason
+                        ? { background: '#FEE2E2', borderColor: '#FECACA', color: '#EF4444' }
+                        : { background: '#F9F9FB', borderColor: '#E8E8ED', color: '#374151' }}>
+                      {reason}
+                    </button>
+                  ))}
+                </div>
+                <button
+                  disabled={!reportReason}
+                  onClick={async () => {
+                    if (!reportReason || !userId) return
+                    await supabase.from('user_reports').insert({
+                      reporter_id: currentUserId,
+                      reported_user_id: userId,
+                      reason: reportReason,
+                    })
+                    setReportSent(true)
+                  }}
+                  className="w-full py-3 rounded-2xl text-sm font-bold text-white transition-all disabled:opacity-40"
+                  style={{ background: 'linear-gradient(135deg, #EF4444, #DC2626)' }}>
+                  Meldung abschicken
+                </button>
+              </>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   )
 }
