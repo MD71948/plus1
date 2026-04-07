@@ -3,8 +3,6 @@ import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { ACTIVITY_CATEGORIES, VIBES } from '../lib/constants'
 import { Button } from '../components/ui/button'
-import { Input } from '../components/ui/input'
-import { Textarea } from '../components/ui/textarea'
 import { LocationSearch } from '../components/features/location-search'
 import { BottomNav } from '../components/layout/bottom-nav'
 
@@ -19,6 +17,28 @@ interface CreatePageProps {
   userId: string
 }
 
+const OUTDOOR_CATS = ['Sport', 'Outdoor', 'Reisen']
+
+const TIME_PRESETS = [
+  { label: '⚡ In 1h', hours: 1 },
+  { label: '🕐 In 2h', hours: 2 },
+  { label: '🌆 Heute Abend', hour: '19', sameDay: true },
+  { label: '☀️ Morgen', tomorrow: true },
+]
+
+function getPresetValues(preset: typeof TIME_PRESETS[number]) {
+  const now = new Date()
+  if ('hours' in preset && preset.hours) {
+    const t = new Date(now.getTime() + preset.hours * 3600000)
+    return { date: t.toISOString().split('T')[0], hour: String(t.getHours()).padStart(2, '0'), minute: '00' }
+  }
+  if ('tomorrow' in preset && preset.tomorrow) {
+    const t = new Date(now); t.setDate(t.getDate() + 1)
+    return { date: t.toISOString().split('T')[0], hour: '12', minute: '00' }
+  }
+  return { date: now.toISOString().split('T')[0], hour: preset.hour ?? '19', minute: '00' }
+}
+
 export function CreatePage({ userId }: CreatePageProps) {
   const navigate = useNavigate()
 
@@ -28,7 +48,7 @@ export function CreatePage({ userId }: CreatePageProps) {
     category: '',
     vibe: '',
     date: '',
-    hour: '12',
+    hour: '18',
     minute: '00',
     spots_total: '2',
     visibility: 'public' as 'public' | 'followers' | 'friends',
@@ -37,31 +57,27 @@ export function CreatePage({ userId }: CreatePageProps) {
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
   const [weatherWarning, setWeatherWarning] = useState<string | null>(null)
+  const [showMore, setShowMore] = useState(false)
 
   const today = new Date().toISOString().split('T')[0]
 
   // Weather check for outdoor categories
-  const OUTDOOR_CATS = ['Sport', 'Outdoor', 'Reisen']
   useEffect(() => {
     if (!OUTDOOR_CATS.includes(form.category) || !form.date || !location) {
-      setWeatherWarning(null)
-      return
+      setWeatherWarning(null); return
     }
-    const diffDays = (new Date(form.date).getTime() - Date.now()) / (1000 * 60 * 60 * 24)
+    const diffDays = (new Date(form.date).getTime() - Date.now()) / 86400000
     if (diffDays < 0 || diffDays > 14) { setWeatherWarning(null); return }
 
-    const url = `https://api.open-meteo.com/v1/forecast?latitude=${location.lat}&longitude=${location.lng}&daily=precipitation_sum,weathercode&timezone=auto&start_date=${form.date}&end_date=${form.date}`
-    fetch(url)
+    fetch(`https://api.open-meteo.com/v1/forecast?latitude=${location.lat}&longitude=${location.lng}&daily=precipitation_sum,weathercode&timezone=auto&start_date=${form.date}&end_date=${form.date}`)
       .then(r => r.json())
       .then(data => {
         const precip: number = (data.daily?.precipitation_sum as number[])?.[0] ?? 0
         const code: number = (data.daily?.weathercode as number[])?.[0] ?? 0
         if (precip > 2 || code >= 61) {
           const emoji = code >= 95 ? '⛈️' : code >= 71 ? '🌨️' : '🌧️'
-          setWeatherWarning(`${emoji} Wetterwarnung: ${precip > 0 ? precip.toFixed(1) + ' mm Regen erwartet' : 'Schlechtes Wetter vorhergesagt'} — plane ggf. eine Alternative`)
-        } else {
-          setWeatherWarning(null)
-        }
+          setWeatherWarning(`${emoji} ${precip > 0 ? precip.toFixed(1) + ' mm Regen erwartet' : 'Schlechtes Wetter'} — plan eine Alternative`)
+        } else setWeatherWarning(null)
       })
       .catch(() => setWeatherWarning(null))
   }, [form.category, form.date, location?.lat, location?.lng])
@@ -69,40 +85,34 @@ export function CreatePage({ userId }: CreatePageProps) {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     setError('')
-
     if (!form.category) { setError('Bitte eine Kategorie wählen.'); return }
     if (!location) { setError('Bitte einen Ort auswählen.'); return }
     if (!form.date) { setError('Bitte Datum angeben.'); return }
 
     const date_time = new Date(`${form.date}T${form.hour}:${form.minute}:00`).toISOString()
-
     setSaving(true)
-    const { data, error: dbError } = await supabase
-      .from('activities')
-      .insert({
-        host_id: userId,
-        title: form.title.trim(),
-        description: form.description.trim() || null,
-        category: form.category,
-        vibe: form.vibe || null,
-        visibility: form.visibility,
-        location_name: location.name,
-        address: location.address,
-        lat: location.lat,
-        lng: location.lng,
-        date_time,
-        spots_total: parseInt(form.spots_total),
-      })
-      .select()
-      .single()
+    const { data, error: dbError } = await supabase.from('activities').insert({
+      host_id: userId,
+      title: form.title.trim(),
+      description: form.description.trim() || null,
+      category: form.category,
+      vibe: form.vibe || null,
+      visibility: form.visibility,
+      location_name: location.name,
+      address: location.address,
+      lat: location.lat,
+      lng: location.lng,
+      date_time,
+      spots_total: parseInt(form.spots_total),
+    }).select().single()
 
-    if (dbError) {
-      setError('Fehler beim Speichern. Bitte erneut versuchen.')
-    } else {
-      navigate(`/activity/${data.id}`)
-    }
+    if (dbError) setError('Fehler beim Speichern. Bitte erneut versuchen.')
+    else navigate(`/activity/${data.id}`)
     setSaving(false)
   }
+
+  const f = form
+  const set = (key: keyof typeof form, val: string) => setForm(p => ({ ...p, [key]: val }))
 
   return (
     <div className="min-h-screen pb-28" style={{ background: 'var(--bg)' }}>
@@ -111,10 +121,8 @@ export function CreatePage({ userId }: CreatePageProps) {
       <div className="sticky top-0 z-10"
         style={{ background: 'rgba(255,255,255,0.92)', backdropFilter: 'blur(20px)', borderBottom: '1px solid var(--border)' }}>
         <div className="max-w-lg mx-auto px-5 h-14 flex items-center justify-between">
-          <button
-            onClick={() => navigate('/feed')}
-            className="w-9 h-9 rounded-xl flex items-center justify-center text-gray-500 hover:text-gray-800 hover:bg-gray-100 transition-all"
-          >
+          <button onClick={() => navigate('/feed')}
+            className="w-9 h-9 rounded-xl flex items-center justify-center text-gray-500 hover:bg-gray-100 transition-all">
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
             </svg>
@@ -124,154 +132,66 @@ export function CreatePage({ userId }: CreatePageProps) {
         </div>
       </div>
 
-      <form onSubmit={handleSubmit} className="max-w-lg mx-auto px-4 py-5 flex flex-col gap-4">
+      <form onSubmit={handleSubmit} className="max-w-lg mx-auto px-4 py-4 flex flex-col gap-3">
 
-        {/* Kategorie */}
+        {/* 1 — Kategorie */}
         <div className="bg-white rounded-3xl p-4 card-shadow" style={{ border: '1px solid var(--border)' }}>
           <p className="text-xs font-black uppercase tracking-widest mb-3 text-gray-400">
-            Kategorie <span className="text-violet-500">*</span>
+            Was? <span className="text-violet-500">*</span>
           </p>
           <div className="grid grid-cols-3 gap-2">
             {ACTIVITY_CATEGORIES.map(cat => (
-              <button
-                key={cat.label}
-                type="button"
-                onClick={() => setForm(f => ({ ...f, category: cat.label }))}
-                className="flex flex-col items-center gap-1.5 py-3 px-2 rounded-2xl text-xs font-bold transition-all duration-200 border"
-                style={form.category === cat.label
+              <button key={cat.label} type="button"
+                onClick={() => set('category', cat.label)}
+                className="flex flex-col items-center gap-1 py-2.5 px-1 rounded-2xl text-xs font-bold transition-all border"
+                style={f.category === cat.label
                   ? { background: '#EDE9FE', borderColor: '#DDD6FE', color: '#7C3AED' }
-                  : { background: '#F9F9FB', borderColor: '#E8E8ED', color: '#9CA3AF' }
-                }
-              >
-                <span className="text-xl">{cat.emoji}</span>
+                  : { background: '#F9F9FB', borderColor: '#E8E8ED', color: '#9CA3AF' }}>
+                <span className="text-lg">{cat.emoji}</span>
                 {cat.label}
               </button>
             ))}
           </div>
         </div>
 
-        {/* Vibe */}
-        <div className="bg-white rounded-3xl p-4 card-shadow" style={{ border: '1px solid var(--border)' }}>
-          <p className="text-xs font-black uppercase tracking-widest mb-3 text-gray-400">Vibe (optional)</p>
-          <div className="flex gap-2 flex-wrap">
-            {VIBES.map(v => (
-              <button
-                key={v.label}
-                type="button"
-                onClick={() => setForm(f => ({ ...f, vibe: f.vibe === v.label ? '' : v.label }))}
-                className="flex items-center gap-1.5 px-3 py-2 rounded-2xl text-xs font-bold border transition-all duration-200"
-                style={form.vibe === v.label
-                  ? { background: v.bg, borderColor: v.border, color: v.color }
-                  : { background: '#F9F9FB', borderColor: '#E8E8ED', color: '#9CA3AF' }
-                }
-              >
-                <span>{v.emoji}</span>
-                {v.label}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* Sichtbarkeit */}
-        <div className="bg-white rounded-3xl p-4 card-shadow" style={{ border: '1px solid var(--border)' }}>
-          <p className="text-xs font-black uppercase tracking-widest mb-3 text-gray-400">Wer kann mitmachen?</p>
-          <div className="flex flex-col gap-2">
-            {([
-              { value: 'public', emoji: '🌍', label: 'Alle', desc: 'Jeder sieht diese Aktivität' },
-              { value: 'followers', emoji: '👥', label: 'Follower', desc: 'Nur Leute die dir folgen' },
-              { value: 'friends', emoji: '👫', label: 'Freunde', desc: 'Nur gegenseitige Follower' },
-            ] as const).map(opt => (
-              <button key={opt.value} type="button"
-                onClick={() => setForm(f => ({ ...f, visibility: opt.value }))}
-                className="flex items-center gap-3 px-4 py-3 rounded-2xl text-left border transition-all"
-                style={form.visibility === opt.value
-                  ? { background: '#EDE9FE', borderColor: '#DDD6FE', color: '#7C3AED' }
-                  : { background: '#F9F9FB', borderColor: '#E8E8ED', color: '#6B7280' }}>
-                <span className="text-xl">{opt.emoji}</span>
-                <div>
-                  <div className="text-sm font-bold">{opt.label}</div>
-                  <div className="text-xs opacity-70">{opt.desc}</div>
-                </div>
-                {form.visibility === opt.value && (
-                  <div className="ml-auto w-5 h-5 rounded-full flex items-center justify-center text-white text-xs font-black"
-                    style={{ background: '#7C3AED' }}>✓</div>
-                )}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* Details */}
-        <div className="bg-white rounded-3xl p-4 flex flex-col gap-4 card-shadow" style={{ border: '1px solid var(--border)' }}>
-          <p className="text-xs font-black uppercase tracking-widest text-gray-400">Details</p>
-          <Input
-            label="Was machst du?"
-            value={form.title}
-            onChange={e => setForm(f => ({ ...f, title: e.target.value }))}
-            placeholder='z.B. "Brauche 4. Padel-Spieler heute 18 Uhr"'
-            required
-            maxLength={100}
+        {/* 2 — Titel + Anzahl */}
+        <div className="bg-white rounded-3xl p-4 card-shadow flex flex-col gap-3" style={{ border: '1px solid var(--border)' }}>
+          <input
+            value={f.title}
+            onChange={e => set('title', e.target.value)}
+            placeholder="Was machst du? z.B. Padel zu viert 🎾"
+            required maxLength={100}
+            className="w-full px-4 py-3 rounded-2xl text-sm font-semibold text-gray-900 bg-gray-50 border border-gray-200 outline-none placeholder:text-gray-400 focus:border-violet-400 focus:bg-white focus:shadow-[0_0_0_3px_rgba(124,58,237,0.1)] transition-all"
           />
-          <Textarea
-            label="Beschreibung (optional)"
-            value={form.description}
-            onChange={e => setForm(f => ({ ...f, description: e.target.value }))}
-            placeholder="Weitere Infos, Treffpunkt, Niveau..."
-            rows={3}
-            maxLength={500}
-          />
-        </div>
-
-        {/* Ort */}
-        <div className="bg-white rounded-3xl p-4 card-shadow" style={{ border: '1px solid var(--border)' }}>
-          <p className="text-xs font-black uppercase tracking-widest mb-3 text-gray-400">Ort</p>
-          <LocationSearch value={location} onChange={setLocation} />
-        </div>
-
-        {/* Weather Warning */}
-        {weatherWarning && (
-          <div className="px-4 py-3 rounded-2xl text-sm font-semibold text-amber-700 bg-amber-50 border border-amber-200 leading-snug">
-            {weatherWarning}
+          {/* Spots inline */}
+          <div className="flex items-center justify-between px-1">
+            <span className="text-xs font-black uppercase tracking-widest text-gray-400">Plätze gesucht</span>
+            <div className="flex items-center gap-3">
+              <button type="button"
+                onClick={() => set('spots_total', String(Math.max(1, parseInt(f.spots_total) - 1)))}
+                className="press w-9 h-9 rounded-xl text-lg font-black text-violet-600 bg-violet-50 border border-violet-100 flex items-center justify-center">−</button>
+              <span className="text-xl font-black text-gray-900 w-6 text-center">{f.spots_total}</span>
+              <button type="button"
+                onClick={() => set('spots_total', String(Math.min(20, parseInt(f.spots_total) + 1)))}
+                className="press w-9 h-9 rounded-xl text-lg font-black text-violet-600 bg-violet-50 border border-violet-100 flex items-center justify-center">+</button>
+            </div>
           </div>
-        )}
+        </div>
 
-        {/* Datum & Uhrzeit */}
+        {/* 3 — Wann */}
         <div className="bg-white rounded-3xl p-4 card-shadow" style={{ border: '1px solid var(--border)' }}>
           <p className="text-xs font-black uppercase tracking-widest mb-3 text-gray-400">
             Wann? <span className="text-violet-500">*</span>
           </p>
-
-          {/* Quick time buttons */}
-          <div className="grid grid-cols-2 gap-2 mb-3">
-            {[
-              { label: '⚡ In 1 Stunde', hours: 1 },
-              { label: '🕐 In 2 Stunden', hours: 2 },
-              { label: '🌆 Heute Abend', hours: null, time: '19:00' },
-              { label: '☀️ Morgen', hours: null, tomorrow: true },
-            ].map(preset => {
-              const getPresetValues = () => {
-                const now = new Date()
-                if (preset.hours !== undefined && preset.hours !== null) {
-                  const t = new Date(now.getTime() + preset.hours * 3600000)
-                  return {
-                    date: t.toISOString().split('T')[0],
-                    hour: String(t.getHours()).padStart(2, '0'),
-                    minute: t.getMinutes() < 30 ? '00' : '30',
-                  }
-                }
-                if (preset.tomorrow) {
-                  const t = new Date(now)
-                  t.setDate(t.getDate() + 1)
-                  return { date: t.toISOString().split('T')[0], hour: '12', minute: '00' }
-                }
-                return { date: now.toISOString().split('T')[0], hour: '19', minute: '00' }
-              }
-              const vals = getPresetValues()
-              const isActive = form.date === vals.date && form.hour === vals.hour
+          {/* Quick presets */}
+          <div className="grid grid-cols-4 gap-1.5 mb-3">
+            {TIME_PRESETS.map(preset => {
+              const vals = getPresetValues(preset)
+              const isActive = f.date === vals.date && f.hour === vals.hour
               return (
                 <button key={preset.label} type="button"
-                  onClick={() => setForm(f => ({ ...f, ...vals }))}
-                  className="py-2.5 px-3 rounded-2xl text-xs font-bold border transition-all text-left"
+                  onClick={() => setForm(p => ({ ...p, ...vals }))}
+                  className="py-2 px-1 rounded-xl text-xs font-bold border transition-all text-center leading-tight"
                   style={isActive
                     ? { background: '#EDE9FE', borderColor: '#DDD6FE', color: '#7C3AED' }
                     : { background: '#F9F9FB', borderColor: '#E8E8ED', color: '#6B7280' }}>
@@ -280,68 +200,95 @@ export function CreatePage({ userId }: CreatePageProps) {
               )
             })}
           </div>
+          {/* Date + time row */}
+          <div className="flex gap-2">
+            <input type="date" value={f.date} min={today} required
+              onChange={e => set('date', e.target.value)}
+              className="flex-1 px-3 py-2.5 rounded-2xl text-sm font-medium text-gray-900 bg-gray-50 border border-gray-200 outline-none focus:border-violet-400 focus:bg-white transition-all" />
+            <select value={f.hour} onChange={e => set('hour', e.target.value)}
+              className="px-3 py-2.5 rounded-2xl text-sm font-medium text-gray-900 bg-gray-50 border border-gray-200 outline-none focus:border-violet-400 focus:bg-white">
+              {Array.from({ length: 24 }, (_, i) => String(i).padStart(2, '0')).map(h => (
+                <option key={h} value={h}>{h}:00</option>
+              ))}
+            </select>
+          </div>
+        </div>
 
-          {/* Custom date/time */}
-          <div className="grid grid-cols-3 gap-2">
-            <div className="col-span-3 sm:col-span-1">
-              <input
-                type="date"
-                value={form.date}
-                onChange={e => setForm(f => ({ ...f, date: e.target.value }))}
-                min={today}
-                required
-                className="w-full px-3 py-2.5 rounded-2xl text-sm font-medium text-gray-900 outline-none transition-all bg-gray-50 border border-gray-200 focus:border-violet-400 focus:bg-white focus:shadow-[0_0_0_3px_rgba(124,58,237,0.1)]"
+        {/* 4 — Wo */}
+        <div className="bg-white rounded-3xl p-4 card-shadow" style={{ border: '1px solid var(--border)' }}>
+          <p className="text-xs font-black uppercase tracking-widest mb-3 text-gray-400">Wo?</p>
+          <LocationSearch value={location} onChange={setLocation} />
+        </div>
+
+        {/* Weather warning */}
+        {weatherWarning && (
+          <div className="px-4 py-3 rounded-2xl text-sm font-semibold text-amber-700 bg-amber-50 border border-amber-200">
+            {weatherWarning}
+          </div>
+        )}
+
+        {/* 5 — Mehr Optionen (accordion) */}
+        <button type="button" onClick={() => setShowMore(m => !m)}
+          className="flex items-center justify-between px-4 py-3 rounded-2xl text-sm font-bold text-gray-500 bg-white border border-gray-200 transition-all hover:bg-gray-50">
+          <span>+ Mehr Optionen</span>
+          <span className="text-xs text-gray-300">{showMore ? '▲' : '▼'}</span>
+        </button>
+
+        {showMore && (
+          <div className="bg-white rounded-3xl p-4 card-shadow flex flex-col gap-4" style={{ border: '1px solid var(--border)' }}>
+
+            {/* Beschreibung */}
+            <div>
+              <p className="text-xs font-black uppercase tracking-widest mb-2 text-gray-400">Beschreibung</p>
+              <textarea
+                value={f.description}
+                onChange={e => set('description', e.target.value)}
+                placeholder="Weitere Infos, Treffpunkt, Niveau…"
+                rows={3} maxLength={500}
+                className="w-full px-4 py-3 rounded-2xl text-sm font-medium text-gray-900 resize-none bg-gray-50 border border-gray-200 outline-none placeholder:text-gray-400 focus:border-violet-400 focus:bg-white transition-all"
               />
             </div>
-            <select
-              value={form.hour}
-              onChange={e => setForm(f => ({ ...f, hour: e.target.value }))}
-              className="px-3 py-2.5 rounded-2xl text-sm font-medium text-gray-900 outline-none transition-all bg-gray-50 border border-gray-200 focus:border-violet-400 focus:bg-white"
-            >
-              {Array.from({ length: 24 }, (_, i) => String(i).padStart(2, '0')).map(h => (
-                <option key={h} value={h}>{h} Uhr</option>
-              ))}
-            </select>
-            <select
-              value={form.minute}
-              onChange={e => setForm(f => ({ ...f, minute: e.target.value }))}
-              className="px-3 py-2.5 rounded-2xl text-sm font-medium text-gray-900 outline-none transition-all bg-gray-50 border border-gray-200 focus:border-violet-400 focus:bg-white"
-            >
-              {['00', '15', '30', '45'].map(m => (
-                <option key={m} value={m}>:{m}</option>
-              ))}
-            </select>
-          </div>
-        </div>
 
-        {/* Spots */}
-        <div className="bg-white rounded-3xl p-4 card-shadow" style={{ border: '1px solid var(--border)' }}>
-          <p className="text-xs font-black uppercase tracking-widest mb-4 text-gray-400">
-            Wie viele Leute suchst du? <span className="text-violet-500">*</span>
-          </p>
-          <div className="flex items-center gap-5 justify-center">
-            <button
-              type="button"
-              onClick={() => setForm(f => ({ ...f, spots_total: String(Math.max(1, parseInt(f.spots_total) - 1)) }))}
-              className="press w-12 h-12 rounded-2xl text-xl font-black text-violet-600 bg-violet-50 border border-violet-100 hover:bg-violet-100 transition-all"
-            >
-              −
-            </button>
-            <div className="flex-1 text-center">
-              <div className="text-4xl font-black text-gray-900">{form.spots_total}</div>
-              <div className="text-xs font-semibold text-gray-400 mt-0.5">
-                {parseInt(form.spots_total) === 1 ? 'Person' : 'Personen'}
+            {/* Vibe */}
+            <div>
+              <p className="text-xs font-black uppercase tracking-widest mb-2 text-gray-400">Vibe</p>
+              <div className="flex gap-2 flex-wrap">
+                {VIBES.map(v => (
+                  <button key={v.label} type="button"
+                    onClick={() => set('vibe', f.vibe === v.label ? '' : v.label)}
+                    className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold border transition-all"
+                    style={f.vibe === v.label
+                      ? { background: v.bg, borderColor: v.border, color: v.color }
+                      : { background: '#F9F9FB', borderColor: '#E8E8ED', color: '#9CA3AF' }}>
+                    {v.emoji} {v.label}
+                  </button>
+                ))}
               </div>
             </div>
-            <button
-              type="button"
-              onClick={() => setForm(f => ({ ...f, spots_total: String(Math.min(20, parseInt(f.spots_total) + 1)) }))}
-              className="press w-12 h-12 rounded-2xl text-xl font-black text-violet-600 bg-violet-50 border border-violet-100 hover:bg-violet-100 transition-all"
-            >
-              +
-            </button>
+
+            {/* Sichtbarkeit — compact icon-row */}
+            <div>
+              <p className="text-xs font-black uppercase tracking-widest mb-2 text-gray-400">Wer sieht das?</p>
+              <div className="flex gap-2">
+                {([
+                  { value: 'public', emoji: '🌍', label: 'Alle' },
+                  { value: 'followers', emoji: '👥', label: 'Follower' },
+                  { value: 'friends', emoji: '👫', label: 'Freunde' },
+                ] as const).map(opt => (
+                  <button key={opt.value} type="button"
+                    onClick={() => set('visibility', opt.value)}
+                    className="flex-1 flex flex-col items-center gap-1 py-2.5 rounded-2xl text-xs font-bold border transition-all"
+                    style={f.visibility === opt.value
+                      ? { background: '#EDE9FE', borderColor: '#DDD6FE', color: '#7C3AED' }
+                      : { background: '#F9F9FB', borderColor: '#E8E8ED', color: '#9CA3AF' }}>
+                    <span className="text-base">{opt.emoji}</span>
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
+            </div>
           </div>
-        </div>
+        )}
 
         {error && (
           <div className="px-4 py-3 rounded-2xl text-sm text-red-600 font-medium bg-red-50 border border-red-100">
@@ -352,8 +299,8 @@ export function CreatePage({ userId }: CreatePageProps) {
         <Button type="submit" size="lg" className="w-full" loading={saving}>
           Aktivität posten ⚡
         </Button>
-      </form>
 
+      </form>
       <BottomNav />
     </div>
   )
