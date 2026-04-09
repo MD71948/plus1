@@ -25,6 +25,8 @@ export function UserProfilePage({ currentUserId }: UserProfilePageProps) {
   const [followerCount, setFollowerCount] = useState(0)
   const [followingCount, setFollowingCount] = useState(0)
   const [followLoading, setFollowLoading] = useState(false)
+  const [isBlocked, setIsBlocked] = useState(false)
+  const [blockDone, setBlockDone] = useState(false)
 
   useEffect(() => {
     if (!userId) return
@@ -41,16 +43,37 @@ export function UserProfilePage({ currentUserId }: UserProfilePageProps) {
       // Follower/following counts
       supabase.from('user_follows').select('id', { count: 'exact', head: true }).eq('following_id', userId),
       supabase.from('user_follows').select('id', { count: 'exact', head: true }).eq('follower_id', userId),
-    ]).then(([{ data: prof }, { data: acts }, { data: myFollow }, { data: theirFollow }, { count: fc }, { count: fgc }]) => {
+      // Have I blocked this user?
+      supabase.from('user_blocks').select('blocker_id').eq('blocker_id', currentUserId).eq('blocked_id', userId).maybeSingle(),
+    ]).then(([{ data: prof }, { data: acts }, { data: myFollow }, { data: theirFollow }, { count: fc }, { count: fgc }, { data: block }]) => {
       setProfile(prof)
       setActivities(acts ?? [])
       setIsFollowing(!!myFollow)
       setIsMutual(!!myFollow && !!theirFollow)
       setFollowerCount(fc ?? 0)
       setFollowingCount(fgc ?? 0)
+      setIsBlocked(!!block)
       setLoading(false)
     })
   }, [userId])
+
+  async function toggleBlock() {
+    if (!userId) return
+    if (isBlocked) {
+      await supabase.from('user_blocks').delete().eq('blocker_id', currentUserId).eq('blocked_id', userId)
+      setIsBlocked(false)
+    } else {
+      await supabase.from('user_blocks').insert({ blocker_id: currentUserId, blocked_id: userId })
+      setIsBlocked(true)
+      setBlockDone(true)
+      // Also unfollow if following
+      if (isFollowing) {
+        await supabase.from('user_follows').delete().eq('follower_id', currentUserId).eq('following_id', userId)
+        setIsFollowing(false)
+        setIsMutual(false)
+      }
+    }
+  }
 
   async function toggleFollow() {
     if (!userId) return
@@ -236,7 +259,7 @@ export function UserProfilePage({ currentUserId }: UserProfilePageProps) {
         </div>
       </div>
 
-      {/* Report Modal */}
+      {/* Report / Block Modal */}
       {showReportModal && (
         <div className="fixed inset-0 z-50 flex items-end justify-center p-4"
           style={{ background: 'rgba(0,0,0,0.5)' }}
@@ -248,8 +271,15 @@ export function UserProfilePage({ currentUserId }: UserProfilePageProps) {
                 <div className="text-4xl">✅</div>
                 <h3 className="text-base font-black text-gray-900">Meldung gesendet</h3>
                 <p className="text-sm text-gray-500">Danke. Wir prüfen das Profil.</p>
+                {/* Also offer to block */}
+                {!isBlocked && (
+                  <button onClick={async () => { await toggleBlock(); setShowReportModal(false); setReportSent(false); setReportReason('') }}
+                    className="mt-1 px-6 py-2.5 rounded-2xl text-sm font-bold border border-gray-200 text-gray-700 bg-gray-50">
+                    Außerdem blockieren
+                  </button>
+                )}
                 <button onClick={() => { setShowReportModal(false); setReportSent(false); setReportReason('') }}
-                  className="mt-2 px-6 py-2.5 rounded-2xl text-sm font-bold text-white"
+                  className="px-6 py-2.5 rounded-2xl text-sm font-bold text-white"
                   style={{ background: 'linear-gradient(135deg, #7C3AED, #5B21B6)' }}>
                   Schließen
                 </button>
@@ -257,24 +287,44 @@ export function UserProfilePage({ currentUserId }: UserProfilePageProps) {
             ) : (
               <>
                 <div>
-                  <h3 className="text-base font-black text-gray-900">Profil melden</h3>
-                  <p className="text-xs text-gray-400 mt-1">Warum meldest du dieses Profil?</p>
+                  <h3 className="text-base font-black text-gray-900">Melden oder blockieren</h3>
+                  <p className="text-xs text-gray-400 mt-1">Was möchtest du tun?</p>
                 </div>
-                <div className="flex flex-col gap-2">
-                  {[
-                    'Person nutzt App zum Daten',
-                    'Belästigung oder unangemessenes Verhalten',
-                    'Fake-Profil / falsche Identität',
-                    'Anderes',
-                  ].map(reason => (
-                    <button key={reason} onClick={() => setReportReason(reason)}
-                      className="px-4 py-3 rounded-2xl text-sm font-semibold text-left border transition-all"
-                      style={reportReason === reason
-                        ? { background: '#FEE2E2', borderColor: '#FECACA', color: '#EF4444' }
-                        : { background: '#F9F9FB', borderColor: '#E8E8ED', color: '#374151' }}>
-                      {reason}
-                    </button>
-                  ))}
+
+                {/* Block option */}
+                <button onClick={async () => { await toggleBlock(); setShowReportModal(false) }}
+                  className="flex items-center gap-3 px-4 py-3 rounded-2xl border transition-all"
+                  style={isBlocked
+                    ? { background: '#F3F4F6', borderColor: '#E5E7EB', color: '#6B7280' }
+                    : { background: '#FFF7ED', borderColor: '#FED7AA', color: '#C2410C' }}>
+                  <span className="text-xl">{isBlocked ? '🔓' : '🚫'}</span>
+                  <div className="text-left">
+                    <p className="text-sm font-bold">{isBlocked ? 'Blockierung aufheben' : `${profile.name} blockieren`}</p>
+                    {!isBlocked && <p className="text-xs opacity-70 mt-0.5">Du siehst diese Person nicht mehr</p>}
+                  </div>
+                </button>
+
+                <div className="border-t border-gray-100" />
+
+                {/* Report section */}
+                <div>
+                  <p className="text-xs font-black uppercase tracking-widest text-gray-400 mb-2">Profil melden</p>
+                  <div className="flex flex-col gap-2">
+                    {[
+                      'Person nutzt App zum Daten',
+                      'Belästigung oder unangemessenes Verhalten',
+                      'Fake-Profil / falsche Identität',
+                      'Anderes',
+                    ].map(reason => (
+                      <button key={reason} onClick={() => setReportReason(reason)}
+                        className="px-4 py-3 rounded-2xl text-sm font-semibold text-left border transition-all"
+                        style={reportReason === reason
+                          ? { background: '#FEE2E2', borderColor: '#FECACA', color: '#EF4444' }
+                          : { background: '#F9F9FB', borderColor: '#E8E8ED', color: '#374151' }}>
+                        {reason}
+                      </button>
+                    ))}
+                  </div>
                 </div>
                 <button
                   disabled={!reportReason}
@@ -294,6 +344,14 @@ export function UserProfilePage({ currentUserId }: UserProfilePageProps) {
               </>
             )}
           </div>
+        </div>
+      )}
+
+      {/* Block confirmation toast */}
+      {blockDone && (
+        <div className="fixed bottom-24 left-1/2 -translate-x-1/2 z-50 px-5 py-3 rounded-2xl text-sm font-bold text-white"
+          style={{ background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(12px)' }}>
+          🚫 {profile?.name} blockiert
         </div>
       )}
     </div>

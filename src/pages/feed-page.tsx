@@ -134,6 +134,7 @@ export function FeedPage({ userId, pendingCount = 0, notifCount = 0, userInteres
   const [selectedActivity, setSelectedActivity] = useState<Activity | null>(null)
   const [following, setFollowing] = useState<Set<string>>(new Set())
   const [followers, setFollowers] = useState<Set<string>>(new Set())
+  const [blockedIds, setBlockedIds] = useState<Set<string>>(new Set())
   const [cityName, setCityName] = useState<string | null>(null)
   const cardStripRef = useRef<HTMLDivElement>(null)
 
@@ -165,11 +166,15 @@ export function FeedPage({ userId, pendingCount = 0, notifCount = 0, userInteres
       .then(({ data }) => setFollowing(new Set(data?.map(f => f.following_id as string) ?? [])))
     supabase.from('user_follows').select('follower_id').eq('following_id', userId)
       .then(({ data }) => setFollowers(new Set(data?.map(f => f.follower_id as string) ?? [])))
+    supabase.from('user_blocks').select('blocked_id').eq('blocker_id', userId)
+      .then(({ data }) => setBlockedIds(new Set(data?.map(b => b.blocked_id as string) ?? [])))
   }, [userId])
 
   const filtered = useMemo(() => {
     let list = activities.filter(a => {
       if (a.status === 'cancelled') return false
+      // Hide activities from blocked users
+      if (blockedIds.has(a.host_id)) return false
       // Visibility filter: own activities always visible
       if (a.host_id === userId) return true
       const vis = a.visibility ?? 'public'
@@ -200,7 +205,7 @@ export function FeedPage({ userId, pendingCount = 0, notifCount = 0, userInteres
     }
 
     return list
-  }, [activities, search, categoryFilter, vibeFilter, distanceKm, userPos, userInterests, following, followers, userId])
+  }, [activities, search, categoryFilter, vibeFilter, distanceKm, userPos, userInterests, following, followers, blockedIds, userId])
 
   const nowActivities = useMemo(() =>
     activities.filter(a => isWithinHours(a.date_time, 2) && a.status !== 'cancelled'),
