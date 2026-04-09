@@ -4,6 +4,11 @@ import { supabase } from '../lib/supabase'
 import { type Activity, type ActivityRequest } from '../types'
 import { BottomNav } from '../components/layout/bottom-nav'
 import { getCategoryClass } from '../lib/utils'
+import { ACTIVITY_CATEGORIES } from '../lib/constants'
+
+function catEmoji(category: string) {
+  return ACTIVITY_CATEGORIES.find(c => c.label === category)?.emoji ?? '⚡'
+}
 
 interface MyActivitiesPageProps {
   userId: string
@@ -60,8 +65,12 @@ export function MyActivitiesPage({ userId, pendingCount = 0 }: MyActivitiesPageP
     setLoading(false)
   }
 
+  const now = new Date()
+  const upcomingHosting = hosting.filter(a => new Date(a.date_time) >= now && a.status !== 'cancelled')
+  const pastHosting = hosting.filter(a => new Date(a.date_time) < now || a.status === 'cancelled')
+
   const tabs: { key: Tab; label: string; count: number }[] = [
-    { key: 'hosting', label: 'Ich hoste', count: hosting.length },
+    { key: 'hosting', label: 'Ich hoste', count: upcomingHosting.length },
     { key: 'attending', label: 'Ich bin dabei', count: attending.length },
     { key: 'requests', label: 'Anfragen', count: myRequests.filter(r => r.status === 'pending').length },
   ]
@@ -117,7 +126,24 @@ export function MyActivitiesPage({ userId, pendingCount = 0 }: MyActivitiesPageP
                   action={{ label: 'Jetzt erstellen', onClick: () => navigate('/create') }}
                 />
               ) : (
-                hosting.map(a => <ActivityRow key={a.id} activity={a} showStatus onClick={() => navigate(`/activity/${a.id}`)} />)
+                <>
+                  {upcomingHosting.length > 0 && (
+                    <>
+                      <p className="text-xs font-black uppercase tracking-widest text-gray-400 px-1">Kommend</p>
+                      {upcomingHosting.map(a => (
+                        <ActivityRow key={a.id} activity={a} showStatus onClick={() => navigate(`/activity/${a.id}`)} />
+                      ))}
+                    </>
+                  )}
+                  {pastHosting.length > 0 && (
+                    <>
+                      <p className="text-xs font-black uppercase tracking-widest text-gray-400 px-1 mt-2">Vergangen</p>
+                      {pastHosting.map(a => (
+                        <ActivityRow key={a.id} activity={a} showStatus onClick={() => navigate(`/activity/${a.id}`)} />
+                      ))}
+                    </>
+                  )}
+                </>
               )
             )}
 
@@ -169,14 +195,7 @@ function ActivityRow({ activity: a, showStatus, onClick }: { activity: Activity;
       style={{ border: '1px solid var(--border)' }}>
       <div className="w-12 h-12 rounded-2xl flex items-center justify-center flex-shrink-0 text-xl"
         style={{ background: 'var(--bg)' }}>
-        {a.category === 'Sport' ? '⚽' :
-          a.category === 'Outdoor' ? '🏕️' :
-          a.category === 'Essen' ? '🍕' :
-          a.category === 'Kultur' ? '🎨' :
-          a.category === 'Musik' ? '🎵' :
-          a.category === 'Gaming' ? '🎮' :
-          a.category === 'Reisen' ? '✈️' :
-          a.category === 'Lernen' ? '📚' : '⚡'}
+        {catEmoji(a.category)}
       </div>
       <div className="flex-1 min-w-0">
         <div className="text-sm font-bold text-gray-900 truncate">{a.title}</div>
