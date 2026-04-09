@@ -1,5 +1,5 @@
 import { useEffect, useState, useMemo, useRef } from 'react'
-import { MapContainer, TileLayer, Marker, Popup, Circle, CircleMarker, useMap } from 'react-leaflet'
+import { MapContainer, TileLayer, Marker, Circle, CircleMarker, useMap } from 'react-leaflet'
 import { DivIcon } from 'leaflet'
 import { useNavigate } from 'react-router-dom'
 import 'leaflet/dist/leaflet.css'
@@ -64,47 +64,79 @@ function LocateButton({ userPos }: { userPos: [number, number] | null }) {
   if (!userPos) return null
   return (
     <button
-      onClick={() => map.flyTo(userPos, 14, { duration: 0.8 })}
-      className="absolute top-3 right-3 z-[1000] w-11 h-11 bg-white rounded-2xl flex items-center justify-center transition-all hover:bg-gray-50"
-      style={{ boxShadow: '0 2px 10px rgba(0,0,0,0.15)', border: '1px solid var(--border)' }}
+      onClick={() => map.flyTo(userPos, 15, { duration: 0.8 })}
+      className="absolute bottom-36 right-3 z-[1000] w-11 h-11 bg-white rounded-2xl flex items-center justify-center transition-all active:scale-95"
+      style={{ boxShadow: '0 4px 14px rgba(0,0,0,0.12)', border: '1px solid rgba(0,0,0,0.06)' }}
       title="Mein Standort">
       <svg className="w-5 h-5 text-violet-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5}
           d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
       </svg>
     </button>
   )
 }
 
-function makePin(color: string, selected: boolean, isNow: boolean = false) {
-  const size = selected ? 40 : 32
-  const radarHtml = isNow ? `
-    <div class="radar-ring" style="
+function makePin(emoji: string, color: string, selected: boolean, isNow: boolean = false) {
+  // Pulse ring for "now" activities
+  const ringHtml = isNow ? `
+    <div style="
       position:absolute;
-      inset:-10px;
+      inset:-6px;
       border-radius:50%;
-      background:${color}22;
-      border:2px solid ${color}88;
+      border:2.5px solid ${color};
+      opacity:0.5;
+      animation:ping 1.5s cubic-bezier(0,0,0.2,1) infinite;
       pointer-events:none;
     "></div>` : ''
+
+  const bg = selected ? color : 'white'
+  const emojiColor = selected ? 'white' : 'inherit'
+  const border = selected ? `3px solid white` : `2.5px solid ${color}`
+  const shadow = selected
+    ? `0 4px 16px ${color}66, 0 2px 6px rgba(0,0,0,0.2)`
+    : `0 2px 10px rgba(0,0,0,0.15), 0 1px 3px rgba(0,0,0,0.1)`
+  const scale = selected ? 1.15 : 1
+  const w = 38
+  const h = 44 // pill with tail
+
   return new DivIcon({
-    html: `<div style="position:relative;width:${size}px;height:${size}px;">
-      ${radarHtml}
-      <div style="
-        width:${size}px;
-        height:${size}px;
-        background:${color};
-        border-radius:50% 50% 50% 0;
-        transform:rotate(-45deg);
-        border:3px solid white;
-        box-shadow:0 2px 8px rgba(0,0,0,0.25);
-        transition:all 0.2s;
-      "></div>
-    </div>`,
+    html: `
+      <div style="position:relative;width:${w}px;height:${h}px;">
+        ${ringHtml}
+        <div style="
+          position:absolute;
+          top:0; left:0;
+          width:${w}px;
+          height:${w}px;
+          background:${bg};
+          border-radius:50%;
+          border:${border};
+          box-shadow:${shadow};
+          display:flex;
+          align-items:center;
+          justify-content:center;
+          font-size:16px;
+          transform:scale(${scale});
+          transform-origin:center bottom;
+          transition:all 0.2s ease;
+          color:${emojiColor};
+        ">${emoji}</div>
+        <div style="
+          position:absolute;
+          bottom:0;
+          left:50%;
+          transform:translateX(-50%);
+          width:6px;
+          height:8px;
+          background:${bg};
+          clip-path:polygon(50% 100%, 0 0, 100% 0);
+          filter:drop-shadow(0 2px 2px rgba(0,0,0,0.12));
+        "></div>
+      </div>`,
     className: '',
-    iconSize: [size, size],
-    iconAnchor: [size / 2, size],
+    iconSize: [w, h],
+    iconAnchor: [w / 2, h],
   })
 }
 
@@ -368,8 +400,8 @@ export function FeedPage({ userId, pendingCount = 0, notifCount = 0, userInteres
             className="w-full h-full"
             zoomControl={false}>
             <TileLayer
-              url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-              attribution='© <a href="https://openstreetmap.org/">OpenStreetMap</a>'
+              url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
+              attribution='© <a href="https://openstreetmap.org/copyright">OpenStreetMap</a> contributors © <a href="https://carto.com/attributions">CARTO</a>'
             />
             <MapPanner center={selectedActivity ? [selectedActivity.lat, selectedActivity.lng] : null} />
             <MapFitter center={userPos} radiusKm={distanceKm} />
@@ -401,41 +433,38 @@ export function FeedPage({ userId, pendingCount = 0, notifCount = 0, userInteres
               const isSelected = a.id === selectedActivity?.id
               const color = CAT_COLORS[a.category] ?? '#7C3AED'
               const isNow = isWithinHours(a.date_time, 2)
+              const emoji = ACTIVITY_CATEGORIES.find(c => c.label === a.category)?.emoji ?? '⚡'
               return (
                 <Marker key={a.id} position={[a.lat, a.lng]}
-                  icon={makePin(color, isSelected, isNow)}
-                  eventHandlers={{ click: () => scrollToActivity(a) }}>
-                  <Popup>
-                    <div className="text-sm font-sans">
-                      <div className="font-bold">{a.title}</div>
-                      <div className="text-gray-500 text-xs">{a.spots_total - a.spots_taken} Plätze frei</div>
-                    </div>
-                  </Popup>
-                </Marker>
+                  icon={makePin(emoji, color, isSelected, isNow)}
+                  eventHandlers={{ click: () => scrollToActivity(a) }}
+                />
               )
             })}
           </MapContainer>
 
           {/* Radius quick-filter overlay — top left */}
-          <div className="absolute top-3 left-3 z-[1000] flex flex-col gap-1.5">
+          <div className="absolute top-3 left-3 z-[1000] flex flex-col gap-2">
             <div className="flex gap-1 p-1 rounded-2xl"
-              style={{ background: 'rgba(255,255,255,0.95)', backdropFilter: 'blur(12px)', boxShadow: '0 2px 10px rgba(0,0,0,0.15)', border: '1px solid var(--border)' }}>
+              style={{ background: 'rgba(255,255,255,0.9)', backdropFilter: 'blur(16px)', boxShadow: '0 4px 16px rgba(0,0,0,0.1)', border: '1px solid rgba(0,0,0,0.06)' }}>
               {([50, 5, 10, 20] as const).map(km => {
-                const label = km === 50 ? 'Alle' : `${km} km`
+                const label = km === 50 ? 'Alle' : `${km}km`
                 const active = distanceKm === km
                 return (
                   <button key={km} onClick={() => setDistanceKm(km)}
                     className="px-2.5 py-1.5 rounded-xl text-xs font-black transition-all"
-                    style={active ? { background: '#7C3AED', color: 'white' } : { color: '#6B7280' }}>
+                    style={active
+                      ? { background: '#7C3AED', color: 'white', boxShadow: '0 2px 6px rgba(124,58,237,0.4)' }
+                      : { color: '#9CA3AF' }}>
                     {label}
                   </button>
                 )
               })}
             </div>
             {!userPos && distanceKm < 50 && (
-              <div className="text-[10px] font-semibold text-white px-2 py-1 rounded-xl text-center"
-                style={{ background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(8px)' }}>
-                📍 Standort freigeben für Radius
+              <div className="text-[10px] font-semibold text-white px-2.5 py-1.5 rounded-xl text-center"
+                style={{ background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(8px)' }}>
+                📍 Standort freigeben
               </div>
             )}
           </div>
@@ -595,41 +624,52 @@ function MapCard({ activity: a, userPos, selected, onClick }: {
   const spotsLeft = a.spots_total - a.spots_taken
   const isToday = new Date(a.date_time).toDateString() === new Date().toDateString()
   const timeStr = new Date(a.date_time).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })
+  const dateStr = isToday ? 'Heute' : new Date(a.date_time).toLocaleDateString('de-DE', { weekday: 'short', day: 'numeric', month: 'short' })
   const dist = userPos ? haversineKm(userPos[0], userPos[1], a.lat, a.lng) : null
-  const catClass = getCategoryClass(a.category)
   const urgency = getUrgencyLabel(a.date_time)
-  const vibeInfo = VIBES.find(v => v.label === a.vibe)
+  const color = CAT_COLORS[a.category] ?? '#7C3AED'
+  const emoji = ACTIVITY_CATEGORIES.find(c => c.label === a.category)?.emoji ?? '⚡'
 
   return (
     <div onClick={onClick}
-      className="press flex-shrink-0 bg-white rounded-3xl p-4 cursor-pointer transition-all duration-200"
+      className="press flex-shrink-0 rounded-3xl overflow-hidden cursor-pointer transition-all duration-200 bg-white"
       style={{
-        width: 'min(85vw, 320px)',
+        width: 'min(80vw, 300px)',
         scrollSnapAlign: 'center',
-        border: selected ? '2px solid #7C3AED' : '1px solid var(--border)',
-        boxShadow: selected ? '0 4px 20px rgba(124,58,237,0.2)' : '0 2px 8px rgba(0,0,0,0.08)',
+        border: selected ? `2px solid ${color}` : '1.5px solid rgba(0,0,0,0.07)',
+        boxShadow: selected
+          ? `0 8px 28px ${color}33, 0 2px 8px rgba(0,0,0,0.1)`
+          : '0 2px 12px rgba(0,0,0,0.08)',
       }}>
-      <div className="flex items-center justify-between mb-2">
-        <div className="flex items-center gap-1.5">
-          <span className={`${catClass} text-xs font-bold px-2.5 py-1 rounded-full border`}>{a.category}</span>
-          {vibeInfo && (
-            <span className="text-xs font-bold px-2 py-0.5 rounded-full border"
-              style={{ background: vibeInfo.bg, color: vibeInfo.color, borderColor: vibeInfo.border }}>
-              {vibeInfo.emoji} {vibeInfo.label}
+
+      {/* Colored header */}
+      <div className="px-4 pt-3.5 pb-5 relative"
+        style={{ background: `linear-gradient(135deg, ${color}E8, ${color})` }}>
+        <div className="flex items-center justify-between">
+          <span className="text-2xl">{emoji}</span>
+          <div className="flex items-center gap-1.5">
+            {urgency && (
+              <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-white/25 text-white">
+                {urgency}
+              </span>
+            )}
+            <span className={`text-[10px] font-black px-2 py-0.5 rounded-full ${spotsLeft > 0 ? 'bg-white/90 text-emerald-700' : 'bg-white/30 text-white'}`}>
+              {spotsLeft > 0 ? `${spotsLeft} frei` : 'Voll'}
             </span>
-          )}
-        </div>
-        <div className="flex items-center gap-1.5">
-          {urgency && <span className="text-xs font-black text-amber-600 bg-amber-50 px-2 py-0.5 rounded-full border border-amber-200">{urgency}</span>}
-          <span className={`text-xs font-bold px-2.5 py-1 rounded-full border ${spotsLeft > 0 ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-gray-100 text-gray-400 border-gray-200'}`}>
-            {spotsLeft > 0 ? `${spotsLeft} frei` : 'Voll'}
-          </span>
+          </div>
         </div>
       </div>
-      <h3 className="text-sm font-bold text-gray-900 leading-snug mb-2">{a.title}</h3>
-      <div className="flex items-center justify-between text-xs text-gray-500 font-semibold">
-        <span className={isToday ? 'text-violet-600 font-bold' : ''}>{isToday ? 'Heute' : new Date(a.date_time).toLocaleDateString('de-DE', { weekday: 'short', day: 'numeric', month: 'short' })} · {timeStr}</span>
-        {dist !== null && <span>{formatDistance(dist)} entfernt</span>}
+
+      {/* Content */}
+      <div className="px-4 pt-3 pb-3.5 -mt-3 relative">
+        <h3 className="text-sm font-black text-gray-900 leading-snug mb-1.5 line-clamp-2">{a.title}</h3>
+        <div className="flex items-center justify-between text-xs font-semibold text-gray-400">
+          <span className={isToday ? 'text-violet-600 font-black' : ''}>{dateStr} · {timeStr}</span>
+          {dist !== null && <span className="font-bold">{formatDistance(dist)}</span>}
+        </div>
+        {a.location_name && (
+          <p className="text-[11px] text-gray-400 mt-1 truncate">📍 {a.location_name}</p>
+        )}
       </div>
     </div>
   )

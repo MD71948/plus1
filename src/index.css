@@ -94,6 +94,11 @@ body {
   animation: radar-pulse 1.5s ease-out infinite;
 }
 
+/* Ping animation for "now" map pins */
+@keyframes ping {
+  75%, 100% { transform: scale(1.8); opacity: 0; }
+}
+
 /* Press effect */
 .press:active {
   transform: scale(0.97);
