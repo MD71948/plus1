@@ -3,8 +3,20 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { type Activity, type UserProfile, type ActivityRequestWithProfile, type ChatMessageWithProfile, type ActivityRating } from '../types'
 import { Button } from '../components/ui/button'
-import { getCategoryClass, getUrgencyLabel } from '../lib/utils'
+import { getUrgencyLabel } from '../lib/utils'
 import { ACTIVITY_CATEGORIES } from '../lib/constants'
+
+const CAT_COLORS: Record<string, string> = {
+  'Sport': '#EF4444',
+  'Outdoor': '#22C55E',
+  'Essen & Trinken': '#F97316',
+  'Kultur & Kunst': '#8B5CF6',
+  'Musik': '#EC4899',
+  'Gaming': '#3B82F6',
+  'Reisen': '#14B8A6',
+  'Lernen': '#EAB308',
+  'Sonstiges': '#94A3B8',
+}
 import { SwipeCard } from '../components/features/swipe-card'
 import { ScoreBadge } from '../components/ui/score-badge'
 import { WeatherBadge } from '../components/features/weather-badge'
@@ -255,7 +267,8 @@ export function ActivityDetailPage({ userId }: ActivityDetailPageProps) {
   const pendingRequests = requests.filter(r => r.status === 'pending')
   const acceptedRequests = requests.filter(r => r.status === 'accepted')
   const urgency = getUrgencyLabel(activity.date_time)
-  const catClass = getCategoryClass(activity.category)
+  const catColor = CAT_COLORS[activity.category] ?? '#7C3AED'
+  const catEmoji = ACTIVITY_CATEGORIES.find(c => c.label === activity.category)?.emoji ?? '📌'
   const isCancelled = activity.status === 'cancelled'
   const isPast = new Date(activity.date_time) < new Date()
 
@@ -472,72 +485,111 @@ export function ActivityDetailPage({ userId }: ActivityDetailPageProps) {
             </div>
           )}
 
-          {/* Activity card */}
-          <div className="bg-white rounded-3xl p-5 flex flex-col gap-4 card-shadow" style={{ border: '1px solid var(--border)' }}>
-            <div className="flex items-center justify-between">
-              <span className={`${catClass} text-xs font-bold px-3 py-1 rounded-full border`}>{activity.category}</span>
-              <div className="flex items-center gap-2">
-                {urgency && !isCancelled && (
-                  <span className="text-xs font-black px-3 py-1 rounded-full bg-amber-50 text-amber-600 border border-amber-200">{urgency}</span>
-                )}
-                <span className={`text-xs font-bold px-3 py-1 rounded-full border
-                  ${isCancelled ? 'bg-red-50 text-red-500 border-red-100' :
-                    activity.status === 'open' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
-                    'bg-gray-100 text-gray-400 border-gray-200'}`}>
-                  {isCancelled ? 'Abgesagt' : activity.status === 'open' ? `${spotsLeft} frei` : 'Voll'}
-                </span>
+          {/* Activity hero card */}
+          <div className="rounded-3xl overflow-hidden" style={{ boxShadow: '0 8px 32px rgba(0,0,0,0.1), 0 2px 8px rgba(0,0,0,0.06)' }}>
+            {/* Gradient hero */}
+            <div className="px-5 pt-5 pb-8 relative overflow-hidden"
+              style={{ background: `linear-gradient(135deg, ${catColor}F5, ${catColor}D0)` }}>
+              {/* Decorative blobs */}
+              <div style={{ position: 'absolute', top: -32, right: -32, width: 120, height: 120, borderRadius: '50%', background: 'rgba(255,255,255,0.13)', pointerEvents: 'none' }} />
+              <div style={{ position: 'absolute', bottom: -20, left: -20, width: 80, height: 80, borderRadius: '50%', background: 'rgba(255,255,255,0.08)', pointerEvents: 'none' }} />
+
+              <div className="relative">
+                {/* Top row: emoji + badges */}
+                <div className="flex items-start justify-between mb-3">
+                  <span className="text-5xl drop-shadow-sm">{catEmoji}</span>
+                  <div className="flex flex-col items-end gap-1.5">
+                    {isCancelled ? (
+                      <span className="text-xs font-black px-3 py-1 rounded-full bg-white/90 text-red-600">❌ Abgesagt</span>
+                    ) : (
+                      <>
+                        {urgency && (
+                          <span className="text-xs font-black px-3 py-1 rounded-full bg-white/30 text-white">{urgency}</span>
+                        )}
+                        <span className={`text-xs font-black px-3 py-1 rounded-full ${
+                          activity.status === 'open' ? 'bg-white/90 text-emerald-700' : 'bg-white/25 text-white/80'
+                        }`}>
+                          {activity.status === 'open' ? `${spotsLeft} Plätze frei` : 'Voll'}
+                        </span>
+                      </>
+                    )}
+                  </div>
+                </div>
+                {/* Category label */}
+                <p className="text-white/70 text-xs font-bold uppercase tracking-widest mb-1.5">{activity.category}</p>
+                {/* Title */}
+                <h2 className="text-2xl font-black text-white leading-tight">{activity.title}</h2>
               </div>
             </div>
 
-            <h2 className="text-xl font-black text-gray-900 leading-tight">{activity.title}</h2>
+            {/* White content body */}
+            <div className="bg-white px-5 pt-4 pb-5 -mt-3 rounded-t-2xl relative flex flex-col gap-4">
+              {activity.description && (
+                <p className="text-sm leading-relaxed text-gray-600">{activity.description}</p>
+              )}
 
-            {activity.description && (
-              <p className="text-sm leading-relaxed text-gray-600">{activity.description}</p>
-            )}
+              {/* Info rows */}
+              <div className="flex flex-col gap-2.5">
+                {[
+                  { icon: 'M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z', label: 'Wann', value: `${dateStr}, ${timeStr} Uhr` },
+                  { icon: 'M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z', label: 'Wo', value: activity.location_name },
+                  { icon: 'M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0', label: 'Teilnehmer', value: `${activity.spots_taken} von ${activity.spots_total} Plätzen belegt` },
+                ].map(item => (
+                  <div key={item.label} className="flex items-center gap-3">
+                    <div className="w-9 h-9 rounded-2xl flex items-center justify-center flex-shrink-0"
+                      style={{ background: `${catColor}15` }}>
+                      <svg className="w-4 h-4" style={{ color: catColor }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={item.icon} />
+                      </svg>
+                    </div>
+                    <div>
+                      <div className="text-[10px] font-black uppercase tracking-widest text-gray-400">{item.label}</div>
+                      <div className="text-sm font-semibold text-gray-900">{item.value}</div>
+                    </div>
+                  </div>
+                ))}
+              </div>
 
-            <div className="flex flex-col gap-3 pt-3 border-t border-gray-100">
-              {[
-                { icon: 'M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z', label: 'Wann', value: `${dateStr}, ${timeStr} Uhr` },
-                { icon: 'M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z', label: 'Wo', value: activity.location_name },
-                { icon: 'M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0', label: 'Dabei', value: `${activity.spots_taken} von ${activity.spots_total}` },
-              ].map(item => (
-                <div key={item.label} className="flex items-center gap-3">
-                  <div className="w-9 h-9 rounded-2xl flex items-center justify-center flex-shrink-0 bg-violet-50">
-                    <svg className="w-4 h-4 text-violet-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={item.icon} />
-                    </svg>
-                  </div>
-                  <div>
-                    <div className="text-xs font-semibold uppercase tracking-wide text-gray-400">{item.label}</div>
-                    <div className="text-sm font-semibold text-gray-900">{item.value}</div>
-                  </div>
+              {/* Spots progress bar */}
+              <div>
+                <div className="h-2 rounded-full bg-gray-100 overflow-hidden">
+                  <div className="h-full rounded-full transition-all"
+                    style={{
+                      width: `${Math.min((activity.spots_taken / activity.spots_total) * 100, 100)}%`,
+                      background: spotsLeft === 0 ? '#94A3B8' : `linear-gradient(90deg, ${catColor}88, ${catColor})`,
+                    }} />
                 </div>
-              ))}
-            </div>
+              </div>
 
-            {/* Weather */}
-            <WeatherBadge lat={activity.lat} lng={activity.lng} dateTime={activity.date_time} />
+              {/* Weather */}
+              <WeatherBadge lat={activity.lat} lng={activity.lng} dateTime={activity.date_time} />
+            </div>
           </div>
 
           {/* Host */}
           {hostProfile && (
             <button onClick={() => navigate(`/user/${activity.host_id}`)}
-              className="press w-full bg-white rounded-3xl p-4 card-shadow text-left transition-all hover:shadow-md"
-              style={{ border: '1px solid var(--border)' }}>
-              <p className="text-xs font-black uppercase tracking-widest mb-3 text-gray-400">Organisiert von</p>
+              className="press w-full bg-white rounded-3xl p-4 text-left transition-all"
+              style={{ border: '1px solid var(--border)', boxShadow: '0 4px 16px rgba(0,0,0,0.06)' }}>
+              <p className="text-[10px] font-black uppercase tracking-widest mb-3 text-gray-400">Organisiert von</p>
               <div className="flex items-center gap-3">
-                <div className="w-12 h-12 rounded-2xl overflow-hidden flex-shrink-0 border border-gray-100">
+                <div className="w-14 h-14 rounded-2xl overflow-hidden flex-shrink-0"
+                  style={{ border: `2px solid ${catColor}30`, boxShadow: `0 4px 12px ${catColor}25` }}>
                   {hostProfile.avatar_url
                     ? <img src={hostProfile.avatar_url} alt={hostProfile.name} className="w-full h-full object-cover" />
-                    : <div className="w-full h-full flex items-center justify-center text-lg font-black text-white"
-                        style={{ background: 'linear-gradient(135deg, #7C3AED, #5B21B6)' }}>{hostProfile.name[0]}</div>
+                    : <div className="w-full h-full flex items-center justify-center text-xl font-black text-white"
+                        style={{ background: `linear-gradient(135deg, ${catColor}, ${catColor}BB)` }}>{hostProfile.name[0]}</div>
                   }
                 </div>
                 <div className="flex-1">
-                  <div className="text-sm font-bold text-gray-900">{hostProfile.name}</div>
-                  {hostProfile.city && <div className="text-xs text-gray-500">{hostProfile.city}</div>}
+                  <div className="text-base font-black text-gray-900">{hostProfile.name}</div>
+                  {hostProfile.city && <div className="text-xs text-gray-500 mt-0.5">📍 {hostProfile.city}</div>}
+                  {hostProfile.bio && <div className="text-xs text-gray-400 mt-1 line-clamp-1">{hostProfile.bio}</div>}
                 </div>
-                <ScoreBadge score={hostProfile.show_up_score ?? 100} count={hostProfile.ratings_count ?? 0} />
+                <div className="flex flex-col items-end gap-1.5">
+                  <ScoreBadge score={hostProfile.show_up_score ?? 100} count={hostProfile.ratings_count ?? 0} />
+                  <span className="text-[10px] font-bold text-gray-400">Profil →</span>
+                </div>
               </div>
             </button>
           )}
