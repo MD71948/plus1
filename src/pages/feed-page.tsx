@@ -6,7 +6,7 @@ import 'leaflet/dist/leaflet.css'
 import { BottomNav } from '../components/layout/bottom-nav'
 import { type Activity } from '../types'
 import { supabase } from '../lib/supabase'
-import { getCategoryClass, getUrgencyLabel, haversineKm, formatDistance, isWithinHours } from '../lib/utils'
+import { getUrgencyLabel, haversineKm, formatDistance, isWithinHours } from '../lib/utils'
 import { ACTIVITY_CATEGORIES, VIBES } from '../lib/constants'
 
 const DEFAULT_CENTER: [number, number] = [52.52, 13.405]
@@ -77,61 +77,91 @@ function LocateButton({ userPos }: { userPos: [number, number] | null }) {
   )
 }
 
-function makePin(emoji: string, color: string, selected: boolean, isNow: boolean = false) {
+function makePin(emoji: string, color: string, selected: boolean, isNow: boolean = false, spotsLeft: number = 0) {
   // Pulse ring for "now" activities
   const ringHtml = isNow ? `
     <div style="
       position:absolute;
-      inset:-6px;
+      inset:-8px;
       border-radius:50%;
-      border:2.5px solid ${color};
-      opacity:0.5;
-      animation:ping 1.5s cubic-bezier(0,0,0.2,1) infinite;
+      border:2px solid ${color};
+      opacity:0.4;
+      animation:ping 1.8s cubic-bezier(0,0,0.2,1) infinite;
+      pointer-events:none;
+    "></div>
+    <div style="
+      position:absolute;
+      inset:-4px;
+      border-radius:50%;
+      border:2px solid ${color};
+      opacity:0.25;
+      animation:ping 1.8s cubic-bezier(0,0,0.2,1) 0.4s infinite;
       pointer-events:none;
     "></div>` : ''
 
   const bg = selected ? color : 'white'
-  const emojiColor = selected ? 'white' : 'inherit'
-  const border = selected ? `3px solid white` : `2.5px solid ${color}`
   const shadow = selected
-    ? `0 4px 16px ${color}66, 0 2px 6px rgba(0,0,0,0.2)`
-    : `0 2px 10px rgba(0,0,0,0.15), 0 1px 3px rgba(0,0,0,0.1)`
-  const scale = selected ? 1.15 : 1
-  const w = 38
-  const h = 44 // pill with tail
+    ? `0 6px 20px ${color}55, 0 2px 8px rgba(0,0,0,0.18), inset 0 1px 1px rgba(255,255,255,0.3)`
+    : `0 3px 12px rgba(0,0,0,0.18), 0 1px 4px rgba(0,0,0,0.1)`
+  const scale = selected ? 1.2 : 1
+  const w = 42
+  const h = 50
+
+  // Spots badge
+  const badgeHtml = spotsLeft > 0 ? `
+    <div style="
+      position:absolute;
+      top:-4px;
+      right:-5px;
+      min-width:16px;
+      height:16px;
+      padding:0 4px;
+      border-radius:8px;
+      background:${selected ? 'white' : color};
+      color:${selected ? color : 'white'};
+      font-size:9px;
+      font-weight:900;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      box-shadow:0 1px 4px rgba(0,0,0,0.25);
+      border:1.5px solid white;
+      z-index:1;
+    ">${spotsLeft}</div>` : ''
 
   return new DivIcon({
     html: `
       <div style="position:relative;width:${w}px;height:${h}px;">
         ${ringHtml}
         <div style="
-          position:absolute;
-          top:0; left:0;
+          position:relative;
           width:${w}px;
           height:${w}px;
           background:${bg};
-          border-radius:50%;
-          border:${border};
+          border-radius:14px;
+          border:${selected ? `2.5px solid white` : `2px solid ${color}`};
           box-shadow:${shadow};
           display:flex;
           align-items:center;
           justify-content:center;
-          font-size:16px;
+          font-size:18px;
           transform:scale(${scale});
           transform-origin:center bottom;
-          transition:all 0.2s ease;
-          color:${emojiColor};
-        ">${emoji}</div>
+          transition:all 0.2s cubic-bezier(0.34,1.56,0.64,1);
+        ">
+          ${badgeHtml}
+          ${emoji}
+        </div>
         <div style="
           position:absolute;
-          bottom:0;
+          bottom:1px;
           left:50%;
           transform:translateX(-50%);
-          width:6px;
+          width:8px;
           height:8px;
           background:${bg};
           clip-path:polygon(50% 100%, 0 0, 100% 0);
-          filter:drop-shadow(0 2px 2px rgba(0,0,0,0.12));
+          filter:drop-shadow(0 2px 3px rgba(0,0,0,0.15));
         "></div>
       </div>`,
     className: '',
@@ -400,7 +430,7 @@ export function FeedPage({ userId, pendingCount = 0, notifCount = 0, userInteres
             className="w-full h-full"
             zoomControl={false}>
             <TileLayer
-              url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
+              url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png"
               attribution='© <a href="https://openstreetmap.org/copyright">OpenStreetMap</a> contributors © <a href="https://carto.com/attributions">CARTO</a>'
             />
             <MapPanner center={selectedActivity ? [selectedActivity.lat, selectedActivity.lng] : null} />
@@ -434,9 +464,10 @@ export function FeedPage({ userId, pendingCount = 0, notifCount = 0, userInteres
               const color = CAT_COLORS[a.category] ?? '#7C3AED'
               const isNow = isWithinHours(a.date_time, 2)
               const emoji = ACTIVITY_CATEGORIES.find(c => c.label === a.category)?.emoji ?? '⚡'
+              const spotsLeft = a.spots_total - a.spots_taken
               return (
                 <Marker key={a.id} position={[a.lat, a.lng]}
-                  icon={makePin(emoji, color, isSelected, isNow)}
+                  icon={makePin(emoji, color, isSelected, isNow, spotsLeft)}
                   eventHandlers={{ click: () => scrollToActivity(a) }}
                 />
               )
@@ -445,16 +476,16 @@ export function FeedPage({ userId, pendingCount = 0, notifCount = 0, userInteres
 
           {/* Radius quick-filter overlay — top left */}
           <div className="absolute top-3 left-3 z-[1000] flex flex-col gap-2">
-            <div className="flex gap-1 p-1 rounded-2xl"
-              style={{ background: 'rgba(255,255,255,0.9)', backdropFilter: 'blur(16px)', boxShadow: '0 4px 16px rgba(0,0,0,0.1)', border: '1px solid rgba(0,0,0,0.06)' }}>
+            <div className="flex gap-1 p-1.5 rounded-2xl"
+              style={{ background: 'rgba(255,255,255,0.92)', backdropFilter: 'blur(20px)', boxShadow: '0 4px 20px rgba(0,0,0,0.12), 0 1px 4px rgba(0,0,0,0.06)', border: '1px solid rgba(255,255,255,0.8)' }}>
               {([50, 5, 10, 20] as const).map(km => {
-                const label = km === 50 ? 'Alle' : `${km}km`
+                const label = km === 50 ? 'Alle' : `${km} km`
                 const active = distanceKm === km
                 return (
                   <button key={km} onClick={() => setDistanceKm(km)}
-                    className="px-2.5 py-1.5 rounded-xl text-xs font-black transition-all"
+                    className="px-3 py-1.5 rounded-xl text-xs font-black transition-all duration-200"
                     style={active
-                      ? { background: '#7C3AED', color: 'white', boxShadow: '0 2px 6px rgba(124,58,237,0.4)' }
+                      ? { background: 'linear-gradient(135deg, #7C3AED, #6D28D9)', color: 'white', boxShadow: '0 3px 8px rgba(124,58,237,0.45)' }
                       : { color: '#9CA3AF' }}>
                     {label}
                   </button>
@@ -462,8 +493,8 @@ export function FeedPage({ userId, pendingCount = 0, notifCount = 0, userInteres
               })}
             </div>
             {!userPos && distanceKm < 50 && (
-              <div className="text-[10px] font-semibold text-white px-2.5 py-1.5 rounded-xl text-center"
-                style={{ background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(8px)' }}>
+              <div className="text-[10px] font-semibold text-white px-3 py-1.5 rounded-xl text-center"
+                style={{ background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(12px)', border: '1px solid rgba(255,255,255,0.1)' }}>
                 📍 Standort freigeben
               </div>
             )}
@@ -622,54 +653,92 @@ function MapCard({ activity: a, userPos, selected, onClick }: {
   activity: Activity; userPos: [number, number] | null; selected: boolean; onClick: () => void
 }) {
   const spotsLeft = a.spots_total - a.spots_taken
+  const spotsFraction = a.spots_taken / a.spots_total
   const isToday = new Date(a.date_time).toDateString() === new Date().toDateString()
   const timeStr = new Date(a.date_time).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })
   const dateStr = isToday ? 'Heute' : new Date(a.date_time).toLocaleDateString('de-DE', { weekday: 'short', day: 'numeric', month: 'short' })
   const dist = userPos ? haversineKm(userPos[0], userPos[1], a.lat, a.lng) : null
   const urgency = getUrgencyLabel(a.date_time)
+  const isNow = isWithinHours(a.date_time, 2)
   const color = CAT_COLORS[a.category] ?? '#7C3AED'
   const emoji = ACTIVITY_CATEGORIES.find(c => c.label === a.category)?.emoji ?? '⚡'
 
   return (
     <div onClick={onClick}
-      className="press flex-shrink-0 rounded-3xl overflow-hidden cursor-pointer transition-all duration-200 bg-white"
+      className="press flex-shrink-0 rounded-3xl overflow-hidden cursor-pointer bg-white"
       style={{
-        width: 'min(80vw, 300px)',
+        width: 'min(78vw, 290px)',
         scrollSnapAlign: 'center',
+        transition: 'all 0.25s cubic-bezier(0.34,1.56,0.64,1)',
+        transform: selected ? 'translateY(-4px) scale(1.02)' : 'translateY(0) scale(1)',
         border: selected ? `2px solid ${color}` : '1.5px solid rgba(0,0,0,0.07)',
         boxShadow: selected
-          ? `0 8px 28px ${color}33, 0 2px 8px rgba(0,0,0,0.1)`
-          : '0 2px 12px rgba(0,0,0,0.08)',
+          ? `0 12px 32px ${color}40, 0 4px 12px rgba(0,0,0,0.1)`
+          : '0 4px 16px rgba(0,0,0,0.09), 0 1px 4px rgba(0,0,0,0.05)',
       }}>
 
-      {/* Colored header */}
-      <div className="px-4 pt-3.5 pb-5 relative"
-        style={{ background: `linear-gradient(135deg, ${color}E8, ${color})` }}>
-        <div className="flex items-center justify-between">
-          <span className="text-2xl">{emoji}</span>
-          <div className="flex items-center gap-1.5">
+      {/* Gradient header */}
+      <div className="px-4 pt-4 pb-6 relative"
+        style={{ background: `linear-gradient(135deg, ${color}F0, ${color}DD, ${color}BB)` }}>
+        {/* Decorative circle */}
+        <div style={{
+          position: 'absolute', top: -20, right: -20, width: 80, height: 80,
+          borderRadius: '50%', background: 'rgba(255,255,255,0.12)', pointerEvents: 'none'
+        }} />
+        <div className="flex items-start justify-between">
+          <div className="flex items-center gap-2">
+            <span className="text-3xl drop-shadow-sm">{emoji}</span>
+            {isNow && (
+              <div className="flex items-center gap-1 bg-white/25 rounded-full px-2 py-0.5">
+                <div className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
+                <span className="text-[9px] font-black text-white">JETZT</span>
+              </div>
+            )}
+          </div>
+          <div className="flex flex-col items-end gap-1">
             {urgency && (
-              <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-white/25 text-white">
+              <span className="text-[9px] font-black px-2 py-0.5 rounded-full bg-white/30 text-white">
                 {urgency}
               </span>
             )}
-            <span className={`text-[10px] font-black px-2 py-0.5 rounded-full ${spotsLeft > 0 ? 'bg-white/90 text-emerald-700' : 'bg-white/30 text-white'}`}>
+            <span className={`text-[10px] font-black px-2 py-0.5 rounded-full ${
+              spotsLeft === 0 ? 'bg-black/20 text-white/70' : 'bg-white/90 text-emerald-700'
+            }`}>
               {spotsLeft > 0 ? `${spotsLeft} frei` : 'Voll'}
             </span>
           </div>
         </div>
       </div>
 
-      {/* Content */}
-      <div className="px-4 pt-3 pb-3.5 -mt-3 relative">
-        <h3 className="text-sm font-black text-gray-900 leading-snug mb-1.5 line-clamp-2">{a.title}</h3>
-        <div className="flex items-center justify-between text-xs font-semibold text-gray-400">
-          <span className={isToday ? 'text-violet-600 font-black' : ''}>{dateStr} · {timeStr}</span>
-          {dist !== null && <span className="font-bold">{formatDistance(dist)}</span>}
+      {/* White content area */}
+      <div className="px-4 pt-3.5 pb-4 -mt-3 relative bg-white rounded-t-2xl">
+        <h3 className="text-[13px] font-black text-gray-900 leading-snug mb-2 line-clamp-2">{a.title}</h3>
+        <div className="flex items-center gap-1 text-[11px] font-semibold mb-1.5"
+          style={{ color: isToday ? color : '#9CA3AF' }}>
+          <span>{isToday ? '📅 Heute' : `📅 ${dateStr}`}</span>
+          <span className="text-gray-300">·</span>
+          <span className="text-gray-500">{timeStr} Uhr</span>
+          {dist !== null && (
+            <>
+              <span className="text-gray-300">·</span>
+              <span className="font-bold" style={{ color }}>{formatDistance(dist)}</span>
+            </>
+          )}
         </div>
         {a.location_name && (
-          <p className="text-[11px] text-gray-400 mt-1 truncate">📍 {a.location_name}</p>
+          <p className="text-[10px] text-gray-400 mb-2.5 truncate">📍 {a.location_name}</p>
         )}
+        {/* Spots progress bar */}
+        <div className="h-1.5 rounded-full bg-gray-100 overflow-hidden">
+          <div className="h-full rounded-full transition-all duration-500"
+            style={{
+              width: `${Math.min(spotsFraction * 100, 100)}%`,
+              background: spotsLeft === 0 ? '#94A3B8' : `linear-gradient(90deg, ${color}99, ${color})`,
+            }} />
+        </div>
+        <p className="text-[9px] font-bold text-gray-400 mt-1">
+          {a.spots_taken}/{a.spots_total} Plätze belegt
+        </p>
       </div>
     </div>
   )
@@ -682,44 +751,63 @@ function NowCard({ activity: a, userPos, onClick, style }: {
   const spotsLeft = a.spots_total - a.spots_taken
   const timeStr = new Date(a.date_time).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })
   const dist = userPos ? haversineKm(userPos[0], userPos[1], a.lat, a.lng) : null
-  const catClass = getCategoryClass(a.category)
   const diff = new Date(a.date_time).getTime() - Date.now()
   const minsLeft = Math.max(0, Math.floor(diff / 60000))
+  const color = CAT_COLORS[a.category] ?? '#7C3AED'
+  const emoji = ACTIVITY_CATEGORIES.find(c => c.label === a.category)?.emoji ?? '⚡'
 
   return (
     <div onClick={onClick}
-      className="press bg-white rounded-3xl p-5 cursor-pointer card-shadow animate-fade-up transition-all hover:shadow-md"
-      style={{ border: '1px solid var(--border)', ...style }}>
-      <div className="flex items-center justify-between mb-3">
-        <span className={`${catClass} text-xs font-bold px-3 py-1 rounded-full border`}>{a.category}</span>
-        <div className="flex items-center gap-1.5">
-          <div className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
-          <span className="text-sm font-black text-red-500">
-            {minsLeft === 0 ? 'Jetzt!' : `${minsLeft} min`}
-          </span>
+      className="press rounded-3xl cursor-pointer overflow-hidden animate-fade-up"
+      style={{ border: '1px solid var(--border)', boxShadow: '0 4px 20px rgba(0,0,0,0.07)', ...style }}>
+      {/* Colored top strip */}
+      <div className="px-5 pt-4 pb-5 relative"
+        style={{ background: `linear-gradient(135deg, ${color}F2, ${color}E0)` }}>
+        <div style={{
+          position: 'absolute', top: -16, right: -16, width: 72, height: 72,
+          borderRadius: '50%', background: 'rgba(255,255,255,0.15)', pointerEvents: 'none'
+        }} />
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2.5">
+            <span className="text-2xl">{emoji}</span>
+            <div>
+              <p className="text-white/70 text-[10px] font-bold mb-0.5">{a.category}</p>
+              <h3 className="text-white font-black text-base leading-tight">{a.title}</h3>
+            </div>
+          </div>
+          <div className="text-right flex-shrink-0 ml-2">
+            <div className="flex items-center gap-1 justify-end mb-1">
+              <div className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
+              <span className="text-xs font-black text-white">
+                {minsLeft === 0 ? 'Jetzt!' : `${minsLeft} min`}
+              </span>
+            </div>
+            <span className={`text-[10px] font-black px-2 py-0.5 rounded-full ${
+              spotsLeft > 0 ? 'bg-white/90 text-emerald-700' : 'bg-white/25 text-white/70'
+            }`}>
+              {spotsLeft > 0 ? `${spotsLeft} frei` : 'Voll'}
+            </span>
+          </div>
         </div>
       </div>
-      <h3 className="text-base font-black text-gray-900 mb-3">{a.title}</h3>
-      <div className="flex items-center justify-between">
-        <div className="flex flex-col gap-1">
-          <div className="flex items-center gap-1.5 text-xs font-semibold text-gray-500">
-            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
-            {timeStr} Uhr
-          </div>
-          <div className="flex items-center gap-1.5 text-xs font-semibold text-gray-500">
-            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-            </svg>
-            {a.location_name}
-            {dist !== null && <span className="text-violet-600 font-bold ml-1">· {formatDistance(dist)}</span>}
-          </div>
+      {/* White bottom */}
+      <div className="bg-white px-5 py-3 flex items-center gap-3 -mt-2 rounded-t-2xl">
+        <div className="flex items-center gap-1.5 text-xs font-semibold text-gray-500">
+          <svg className="w-3.5 h-3.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+          {timeStr} Uhr
         </div>
-        <span className={`text-sm font-black px-3 py-1.5 rounded-full border
-          ${spotsLeft > 0 ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-gray-100 text-gray-400 border-gray-200'}`}>
-          {spotsLeft > 0 ? `${spotsLeft} Plätze frei` : 'Voll'}
-        </span>
+        <span className="text-gray-200">·</span>
+        <div className="flex items-center gap-1.5 text-xs font-semibold text-gray-500 flex-1 min-w-0">
+          <svg className="w-3.5 h-3.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+          </svg>
+          <span className="truncate">{a.location_name}</span>
+        </div>
+        {dist !== null && (
+          <span className="text-xs font-black flex-shrink-0" style={{ color }}>{formatDistance(dist)}</span>
+        )}
       </div>
     </div>
   )
@@ -730,6 +818,7 @@ function ListCard({ activity: a, userPos, onClick }: {
   activity: Activity; userPos: [number, number] | null; onClick: () => void
 }) {
   const spotsLeft = a.spots_total - a.spots_taken
+  const spotsFraction = a.spots_taken / a.spots_total
   const urgency = getUrgencyLabel(a.date_time)
   const isToday = new Date(a.date_time).toDateString() === new Date().toDateString()
   const dateStr = isToday ? 'Heute' : new Date(a.date_time).toLocaleDateString('de-DE', { weekday: 'short', day: 'numeric', month: 'short' })
@@ -738,56 +827,89 @@ function ListCard({ activity: a, userPos, onClick }: {
   const vibeInfo = VIBES.find(v => v.label === a.vibe)
   const color = CAT_COLORS[a.category] ?? '#7C3AED'
   const catEmoji = ACTIVITY_CATEGORIES.find(c => c.label === a.category)?.emoji ?? '📌'
+  const isNow = isWithinHours(a.date_time, 2)
 
   return (
     <div onClick={onClick}
-      className="press rounded-3xl overflow-hidden cursor-pointer bg-white card-shadow transition-all"
-      style={{ border: '1px solid var(--border)' }}>
+      className="press rounded-3xl overflow-hidden cursor-pointer bg-white"
+      style={{ border: '1px solid var(--border)', boxShadow: '0 4px 16px rgba(0,0,0,0.07), 0 1px 3px rgba(0,0,0,0.04)' }}>
 
-      {/* Colored header strip */}
-      <div className="px-4 pt-3 pb-6 relative"
-        style={{ background: `linear-gradient(135deg, ${color}CC, ${color})` }}>
-        <div className="flex items-center justify-between mb-2">
-          <span className="text-white/80 text-xs font-bold">{catEmoji} {a.category}</span>
-          <div className="flex items-center gap-1.5">
-            {vibeInfo && (
-              <span className="text-xs font-bold px-2 py-0.5 rounded-full"
-                style={{ background: 'rgba(255,255,255,0.2)', color: 'white' }}>
-                {vibeInfo.emoji} {vibeInfo.label}
+      {/* Colored header */}
+      <div className="px-4 pt-4 pb-6 relative"
+        style={{ background: `linear-gradient(135deg, ${color}F0, ${color}D0)` }}>
+        {/* Decorative blob */}
+        <div style={{
+          position: 'absolute', top: -24, right: -24, width: 96, height: 96,
+          borderRadius: '50%', background: 'rgba(255,255,255,0.13)', pointerEvents: 'none'
+        }} />
+        <div className="flex items-start justify-between gap-2">
+          <div className="flex items-center gap-2.5 flex-1 min-w-0">
+            <span className="text-3xl flex-shrink-0">{catEmoji}</span>
+            <div className="min-w-0">
+              <div className="flex items-center gap-1.5 mb-1">
+                <span className="text-white/70 text-[10px] font-bold">{a.category}</span>
+                {isNow && (
+                  <div className="flex items-center gap-1 bg-white/25 rounded-full px-1.5 py-0.5">
+                    <div className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
+                    <span className="text-[9px] font-black text-white">JETZT</span>
+                  </div>
+                )}
+                {vibeInfo && (
+                  <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-white/20 text-white">
+                    {vibeInfo.emoji} {vibeInfo.label}
+                  </span>
+                )}
+              </div>
+              <h3 className="text-white font-black text-[15px] leading-snug">{a.title}</h3>
+            </div>
+          </div>
+          <div className="flex flex-col items-end gap-1 flex-shrink-0">
+            {urgency && (
+              <span className="text-[9px] font-black px-2 py-0.5 rounded-full bg-white/30 text-white">
+                {urgency}
               </span>
             )}
-            <span className="text-xs font-bold px-2.5 py-0.5 rounded-full"
-              style={spotsLeft > 0
-                ? { background: 'rgba(255,255,255,0.25)', color: 'white' }
-                : { background: 'rgba(0,0,0,0.2)', color: 'rgba(255,255,255,0.5)' }}>
+            <span className={`text-[10px] font-black px-2 py-0.5 rounded-full ${
+              spotsLeft === 0 ? 'bg-black/20 text-white/60' : 'bg-white/90 text-emerald-700'
+            }`}>
               {spotsLeft > 0 ? `${spotsLeft} frei` : 'Voll'}
             </span>
           </div>
         </div>
-        <h3 className="text-white font-black text-base leading-snug">{a.title}</h3>
       </div>
 
       {/* White bottom */}
-      <div className="px-4 pt-3 pb-3 flex items-center justify-between -mt-3 bg-white rounded-t-2xl relative">
-        <div className="flex flex-col gap-1">
-          <div className="flex items-center gap-1.5 text-xs font-semibold text-gray-500">
-            <span className={isToday ? 'text-violet-600 font-black' : ''}>
-              {isToday ? '📅 Heute' : `📅 ${dateStr}`}
-            </span>
-            <span className="text-gray-300">·</span>
-            <span>{timeStr} Uhr</span>
-          </div>
-          <div className="flex items-center gap-1 text-xs font-semibold text-gray-500">
-            <span>📍</span>
-            <span className="truncate max-w-[140px]">{a.location_name}</span>
-            {dist !== null && <span className="text-violet-600 font-bold ml-0.5">· {formatDistance(dist)}</span>}
-          </div>
-        </div>
-        {urgency && (
-          <span className="text-xs font-black px-2.5 py-1 rounded-full bg-amber-50 text-amber-600 border border-amber-200 flex-shrink-0">
-            {urgency}
+      <div className="px-4 pt-3.5 pb-4 -mt-3 bg-white rounded-t-2xl relative">
+        <div className="flex items-center gap-2 flex-wrap mb-2.5">
+          <span className="text-xs font-semibold" style={{ color: isToday ? color : '#9CA3AF' }}>
+            {isToday ? '📅 Heute' : `📅 ${dateStr}`}
           </span>
-        )}
+          <span className="text-gray-200 text-xs">·</span>
+          <span className="text-xs font-semibold text-gray-500">{timeStr} Uhr</span>
+          {a.location_name && (
+            <>
+              <span className="text-gray-200 text-xs">·</span>
+              <span className="text-xs font-semibold text-gray-500 truncate max-w-[120px]">📍 {a.location_name}</span>
+            </>
+          )}
+          {dist !== null && (
+            <>
+              <span className="text-gray-200 text-xs">·</span>
+              <span className="text-xs font-bold" style={{ color }}>{formatDistance(dist)}</span>
+            </>
+          )}
+        </div>
+        {/* Spots bar */}
+        <div className="h-1.5 rounded-full bg-gray-100 overflow-hidden">
+          <div className="h-full rounded-full transition-all duration-500"
+            style={{
+              width: `${Math.min(spotsFraction * 100, 100)}%`,
+              background: spotsLeft === 0 ? '#94A3B8' : `linear-gradient(90deg, ${color}88, ${color})`,
+            }} />
+        </div>
+        <p className="text-[9px] font-bold text-gray-400 mt-1">
+          {a.spots_taken}/{a.spots_total} Plätze belegt
+        </p>
       </div>
     </div>
   )
